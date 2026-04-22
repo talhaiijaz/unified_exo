@@ -1,0 +1,18 @@
+serial:
+  port: /dev/cu.usbmodem155143201
+  baud: 115200
+  channels: 10
+  fs: 250.0
+
+processing:
+  notch_freq: 60.0
+  bandpass_low: 0.5
+  bandpass_high: 40.0
+  history_seconds: 120.0
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+storage:
+  captures_dir: captures

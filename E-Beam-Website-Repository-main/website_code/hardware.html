@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CNT–Einzel Lens Studio · Hardware Control</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-wrap">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1 class="brand-title">CNT–Einzel Lens Studio</h1>
+        <p class="brand-sub">Integrated lab utilities and diagnostics</p>
+      </div>
+    </div>
+    
+      <nav class="tabs" aria-label="Primary">
+        <a class="tab " href="index.html">Study page</a>
+        <a class="tab " href="theory.html">Theory &amp; design</a>
+        <a class="tab " href="pattern-workbench.html">Pattern workbench</a>
+        <a class="tab active" href="hardware.html">Hardware control</a>
+        <a class="tab " href="current-monitor.html">Current monitor</a>
+      </nav>
+
+  </div>
+</header>
+
+<main class="container page-shell">
+  <section class="hero card">
+    <div class="hero-copy">
+      <h2>Hardware control</h2>
+      <p>
+        This page preserves the older browser-based control panels for the potentiostat, master/slave current-source stack,
+        lens voltage sliders, and picomotor controller, now restyled to match the rest of the site.
+      </p>
+    </div>
+    <div class="hero-badges">
+      <span class="badge">Web Serial</span>
+      <span class="badge">Plotly diagnostics</span>
+    </div>
+  </section>
+
+  <div class="utility-grid">
+
+    <section class="card" id="potCard">
+      <div class="card-header">
+        <h2 class="card-title">Potentiostat (0–10 V)</h2>
+        <p class="card-sub">Connect to the potentiostat Nano and send voltage commands with one of the supported command formats.</p>
+      </div>
+      <div class="panel-body">
+        <p class="mini">Protocol defaults to <span class="pill">V{mV}</span> such as <code>V2500</code>.</p>
+        <div class="row">
+          <button class="btn" id="potConnect">Connect</button>
+          <button class="btn btn-ghost" id="potDisconnect" disabled>Disconnect</button>
+          <span class="badge" id="potBadge">Not connected</span>
+        </div>
+
+        <div class="soft" style="margin-top:12px">
+          <div class="row">
+            <label>Voltage (V)
+              <input class="num" id="potVolt" type="number" min="0" max="10" step="0.01" value="0.00">
+            </label>
+            <button class="btn" id="potSet" disabled>Set</button>
+            <label>Protocol
+              <select id="potProto" class="site-select inline-select">
+                <option value="VmV">V{mV}</option>
+                <option value="V V">V {V}</option>
+                <option value="DAC">DAC {0..4095}</option>
+              </select>
+            </label>
+            <button class="btn btn-ghost" id="potOff" disabled>0 V</button>
+          </div>
+        </div>
+
+        <pre class="log-box compact-log" id="potLog">Ready. Click “Connect”.</pre>
+      </div>
+    </section>
+
+    <section class="card" id="msCard">
+      <div class="card-header">
+        <h2 class="card-title">Master / Slave current sources</h2>
+        <p class="card-sub">Send binary patterns, acquire streamed or polled values, and save the resulting CSV trace.</p>
+      </div>
+      <div class="panel-body">
+        <div class="row">
+          <button class="btn" id="msConnect">Connect</button>
+          <button class="btn btn-ghost" id="msDisconnect" disabled>Disconnect</button>
+          <span class="badge" id="msBadge">Not connected</span>
+        </div>
+
+        <div class="soft" style="margin-top:12px">
+          <div class="row">
+            <label># Channels
+              <input id="msCount" type="number" min="1" max="24" value="24" class="num">
+            </label>
+            <button class="btn btn-ghost" id="msAllOff" disabled>All 0s</button>
+            <button class="btn btn-ghost" id="msAllOn" disabled>All 1s</button>
+            <button class="btn" id="msSend" disabled>Send pattern</button>
+          </div>
+          <div id="msTiles" class="tiles" style="margin-top:12px"></div>
+        </div>
+
+        <section class="soft lens-soft" id="lensCard" style="margin-top:12px">
+          <div class="utility-section-head">
+            <h3>Lens voltages (0–5 V)</h3>
+            <span id="lensBadge" class="badge">Using Master/Slave port</span>
+          </div>
+          <p class="mini">Connect the Master/Slave panel above first, then tune the five lens channels.</p>
+          <div class="lens-grid">
+            <label>L1 <input id="L1" type="range" min="0" max="5" step="0.01"><input id="L1Num" class="num full" type="number" min="0" max="5" step="0.01"></label>
+            <label>L2 <input id="L2" type="range" min="0" max="5" step="0.01"><input id="L2Num" class="num full" type="number" min="0" max="5" step="0.01"></label>
+            <label>L3 <input id="L3" type="range" min="0" max="5" step="0.01"><input id="L3Num" class="num full" type="number" min="0" max="5" step="0.01"></label>
+            <label>L4 <input id="L4" type="range" min="0" max="5" step="0.01"><input id="L4Num" class="num full" type="number" min="0" max="5" step="0.01"></label>
+            <label>L5 <input id="L5" type="range" min="0" max="5" step="0.01"><input id="L5Num" class="num full" type="number" min="0" max="5" step="0.01"></label>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <label class="checkbox-inline"><input id="linkAll" type="checkbox"> Link sliders</label>
+            <button id="lensZero" class="btn btn-ghost" type="button">Zero all</button>
+            <button id="lensSendAll" class="btn" type="button">Send all</button>
+          </div>
+          <pre id="lensLog" class="log-box compact-log">Tip: connect the Master/Slave panel above, then move any slider.</pre>
+        </section>
+
+        <div class="soft" style="margin-top:12px">
+          <div class="row">
+            <label>Mode
+              <select id="msMode" class="site-select inline-select">
+                <option value="push">Push (device streams)</option>
+                <option value="poll">Poll (send READ?)</option>
+              </select>
+            </label>
+            <label>Rate (Hz)
+              <input id="msHz" type="number" class="num" min="0.5" step="0.5" value="10">
+            </label>
+            <button class="btn" id="msStart" disabled>Start</button>
+            <button class="btn btn-ghost" id="msStop" disabled>Stop</button>
+            <button class="btn btn-ghost" id="msSave" disabled>Save CSV</button>
+          </div>
+          <div id="msPlot" class="plot utility-plot"></div>
+        </div>
+
+        <pre class="log-box compact-log" id="msLog">Ready. Click “Connect”.</pre>
+      </div>
+    </section>
+
+    <section class="card" id="pmCard">
+      <div class="card-header">
+        <h2 class="card-title">Picomotor controller (8742)</h2>
+        <p class="card-sub">Jog two axes, send home and zero commands, and optionally poll for readback.</p>
+      </div>
+      <div class="panel-body">
+        <div class="row">
+          <button class="btn" id="pmConnect">Connect</button>
+          <button class="btn btn-ghost" id="pmDisconnect" disabled>Disconnect</button>
+          <span class="badge" id="pmBadge">Not connected</span>
+        </div>
+
+        <div class="soft" style="margin-top:12px">
+          <div class="row">
+            <label>Step size (steps)
+              <input id="pmSteps" type="number" class="num" min="1" step="1" value="100">
+            </label>
+            <button class="btn" id="pmLeft" disabled>◀ Left</button>
+            <button class="btn" id="pmRight" disabled>Right ▶</button>
+            <button class="btn" id="pmUp" disabled>▲ Up</button>
+            <button class="btn" id="pmDown" disabled>Down ▼</button>
+            <button class="btn btn-ghost" id="pmStop" disabled>STOP</button>
+          </div>
+        </div>
+
+        <div class="soft" style="margin-top:12px">
+          <div class="utility-section-head"><h3>Position readback</h3></div>
+          <div class="kv readback-grid">
+            <div class="param"><span>X position</span><strong id="pmPosX">—</strong></div>
+            <div class="param"><span>Y position</span><strong id="pmPosY">—</strong></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn btn-ghost" id="pmReadX" disabled>Read X</button>
+            <button class="btn btn-ghost" id="pmReadY" disabled>Read Y</button>
+            <button class="btn btn-ghost" id="pmZeroX" disabled>Zero X</button>
+            <button class="btn btn-ghost" id="pmZeroY" disabled>Zero Y</button>
+            <button class="btn btn-ghost" id="pmHomeX" disabled>Home X</button>
+            <button class="btn btn-ghost" id="pmHomeY" disabled>Home Y</button>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <label>Polling rate (Hz)
+              <input id="pmHz" type="number" class="num" min="0.5" step="0.5" value="2">
+            </label>
+            <button class="btn" id="pmStartPoll" disabled>Start polling</button>
+            <button class="btn btn-ghost" id="pmStopPoll" disabled>Stop polling</button>
+          </div>
+        </div>
+
+        <details class="soft" style="margin-top:12px">
+          <summary class="mini">Command templates</summary>
+          <div class="template-grid">
+            <label>Left <input id="tplLeft" class="inline-template" value="1PR -{steps}"></label>
+            <label>Right <input id="tplRight" class="inline-template" value="1PR {steps}"></label>
+            <label>Up <input id="tplUp" class="inline-template" value="2PR {steps}"></label>
+            <label>Down <input id="tplDown" class="inline-template" value="2PR -{steps}"></label>
+            <label>Stop <input id="tplStop" class="inline-template" value="STP"></label>
+            <label>Read X <input id="tplPosX" class="inline-template" value="1TP?"></label>
+            <label>Read Y <input id="tplPosY" class="inline-template" value="2TP?"></label>
+            <label>Zero X <input id="tplZeroX" class="inline-template" value="1DH"></label>
+            <label>Zero Y <input id="tplZeroY" class="inline-template" value="2DH"></label>
+            <label>Home X <input id="tplHomeX" class="inline-template" value="1OR"></label>
+            <label>Home Y <input id="tplHomeY" class="inline-template" value="2OR"></label>
+          </div>
+          <p class="mini">Lines are terminated with <code>
+</code>. Edit these if your controller uses different opcodes.</p>
+        </details>
+
+        <pre class="log-box compact-log" id="pmLog">Ready. Click “Connect”.</pre>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const yearNode = document.getElementById('year');
+  if (yearNode) yearNode.textContent = new Date().getFullYear();
+});
+</script>
+<script>
+/* ========= Shared Serial helpers ========= */
+function makeDevice(logEl, badgeEl){
+  const log = (s)=>{ logEl.textContent += (logEl.textContent ? "\n" : "") + s; logEl.scrollTop = logEl.scrollHeight; };
+  let port=null, reader=null, writeFn=null, opening=false;
+
+  async function connect(){
+    if (writeFn) { log('Already connected.'); return true; }
+    if (opening) { return false; }
+    opening = true;
+    try{
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+
+      const info = port.getInfo ? port.getInfo() : {};
+      const vid = info.usbVendorId ? info.usbVendorId.toString(16).padStart(4,'0') : '----';
+      const pid = info.usbProductId ? info.usbProductId.toString(16).padStart(4,'0') : '----';
+      log(`Serial: port opened @115200 (VID:PID ${vid}:${pid})`);
+
+      const dec = new TextDecoderStream();
+      port.readable.pipeTo(dec.writable);
+      reader = dec.readable.getReader();
+      (async ()=>{ try{ for(;;){ const {value,done}=await reader.read(); if(done) break; if(value){ value.split(/\r?\n/).forEach(line=> line && log('« '+line)); } } }catch{} })();
+
+      const enc = new TextEncoder();
+      writeFn = async (line)=>{ const w = port.writable.getWriter(); await w.write(enc.encode(line)); w.releaseLock(); };
+
+      badgeEl.textContent = `Connected (${vid}:${pid})`;
+      return true;
+    }catch(e){
+      // If user cancels chooser, don’t spam “Disconnected.”
+      if (e && /No port selected/i.test(e.message)) { log('Connect cancelled.'); }
+      else if (e && /already open/i.test(e.message)) { log('This port is already open in another panel/app. Disconnect there first.'); }
+      else { log('Connect error: ' + e.message); }
+      await disconnect();
+      return false;
+    } finally { opening = false; }
+  }
+
+  async function disconnect(){
+    try{
+      if(reader){ try{ await reader.cancel(); }catch{} reader=null; }
+      if(port){ try{ await port.close(); }catch{} port=null; }
+      writeFn=null; badgeEl.textContent = 'Not connected'; log('Disconnected.');
+    }catch{}
+  }
+
+  return {
+    connect,
+    disconnect,
+    write: async (s)=>{ if(writeFn){ const line = s.endsWith("\n") || s.endsWith("\r") ? s : (s+"\n"); const disp = line.replace(/\n/g,'⏎'); log('» '+disp); const w = port.writable.getWriter(); await w.write(new TextEncoder().encode(line)); w.releaseLock(); } },
+    isOpen: ()=> !!writeFn,
+    log
+  };
+}
+
+/* ========= 1) Potentiostat ========= */
+const pot = makeDevice(document.getElementById('potLog'), document.getElementById('potBadge'));
+document.getElementById('potConnect').addEventListener('click', async ()=>{
+  if(!('serial' in navigator)) return pot.log('Web Serial not supported (use Chrome/Edge/Opera with HTTPS/localhost).');
+  const ok = await pot.connect();
+  if (ok) document.getElementById('potConnect').disabled = true;
+  document.getElementById('potDisconnect').disabled = !ok;
+  document.getElementById('potSet').disabled = !ok;
+  document.getElementById('potOff').disabled = !ok;
+});
+document.getElementById('potDisconnect').addEventListener('click', async ()=>{ await pot.disconnect(); document.getElementById('potDisconnect').disabled=true; document.getElementById('potConnect').disabled = false; document.getElementById('potSet').disabled=true; document.getElementById('potOff').disabled=true; });
+
+function potBuildCommand(volts){
+  const proto = document.getElementById('potProto').value;
+  if(proto==='VmV'){
+    const mV = Math.round(volts*1000);
+    return `V${mV}\\n`;
+  }else if(proto==='V V'){
+    return `V ${volts.toFixed(3)}\\n`;
+  }else{ // DAC 0..4095 (for a 12-bit DAC like MCP4725)
+    const code = Math.max(0, Math.min(4095, Math.round(4095*volts/10)));
+    return `DAC ${code}\\n`;
+  }
+}
+document.getElementById('potSet').addEventListener('click', async ()=>{
+  if(!pot.isOpen()) return;
+  let v = parseFloat(document.getElementById('potVolt').value);
+  if(!isFinite(v)) v = 0; v = Math.max(0, Math.min(10, v));
+  await pot.write(potBuildCommand(v));
+});
+document.getElementById('potOff').addEventListener('click', async ()=>{ if(!pot.isOpen()) return; document.getElementById('potVolt').value = '0.00'; await pot.write(potBuildCommand(0)); });
+
+/* ========= 2) Master/Slave (multi-trace plot) ========= */
+const ms = makeDevice(document.getElementById('msLog'), document.getElementById('msBadge'));
+window.ms = ms; // <-- expose for the lens panel
+const msTiles = document.getElementById('msTiles');
+let msPattern = [];
+let pollTimer=null;
+
+const CH_COUNT_DEFAULT = 5; // we’ll plot 5 CSV values
+let chCount = CH_COUNT_DEFAULT;
+
+let msPlotReady=false;
+let msData = { t:[], ys:[] };
+
+function msResetPlot(n){
+  chCount = n;
+  msData = { t:[], ys: Array.from({length:n}, ()=>[]) };
+  const traces = Array.from({length:n}, (_,i)=>({ x:[], y:[], mode:'lines', name:'CH'+(i+1), line:{simplify:true} }));
+  Plotly.newPlot('msPlot', traces, {
+    margin:{l:40,r:10,t:10,b:28},
+    xaxis:{title:'t (s)'},
+    yaxis:{title:'Value'},
+    legend:{orientation:'h'}
+  });
+  msPlotReady = true;
+}
+function msEnsurePlot(){ if(!msPlotReady) msResetPlot(CH_COUNT_DEFAULT); }
+
+function rebuildTiles(){
+  const n = parseInt(document.getElementById('msCount').value,10) || CH_COUNT_DEFAULT;
+  msPattern = Array.from({length:n}, ()=>0);
+  msTiles.innerHTML='';
+  for(let i=0;i<n;i++){
+    const b=document.createElement('button'); b.type='button'; b.className='pix'; b.textContent='0';
+    b.addEventListener('click', ()=>{ msPattern[i]^=1; b.classList.toggle('on', !!msPattern[i]); b.textContent= msPattern[i] ? '1' : '0'; });
+    msTiles.appendChild(b);
+  }
+}
+rebuildTiles();
+document.getElementById('msCount').value = CH_COUNT_DEFAULT; // show 5 in UI
+document.getElementById('msCount').addEventListener('change', rebuildTiles);
+
+document.getElementById('msConnect').addEventListener('click', async ()=>{
+  if(!('serial' in navigator)) return ms.log('Web Serial not supported.');
+  const ok = await ms.connect();
+  ['msDisconnect','msAllOff','msAllOn','msSend','msStart','msStop','msSave'].forEach(id=> document.getElementById(id).disabled=!ok);
+  if (ok){ document.getElementById('msConnect').disabled = true; msResetPlot(CH_COUNT_DEFAULT); }
+});
+document.getElementById('msDisconnect').addEventListener('click', async ()=>{
+  await ms.disconnect();
+  ['msDisconnect','msAllOff','msAllOn','msSend','msStart','msStop','msSave'].forEach(id=> document.getElementById(id).disabled=true);
+  document.getElementById('msConnect').disabled = false;
+  if (pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  msPlotReady=false;
+});
+
+document.getElementById('msAllOff').addEventListener('click', ()=>{
+  msPattern = msPattern.map(_=>0);
+  [...msTiles.children].forEach((el)=>{ el.classList.remove('on'); el.textContent='0'; });
+});
+document.getElementById('msAllOn').addEventListener('click', ()=>{
+  msPattern = msPattern.map(_=>1);
+  [...msTiles.children].forEach((el)=>{ el.classList.add('on'); el.textContent='1'; });
+});
+document.getElementById('msSend').addEventListener('click', async ()=>{
+  if(!ms.isOpen()) return;
+  const s = msPattern.join('');
+  await ms.write(s + "\r\n");
+});
+
+function startPoll(){
+  if(pollTimer) return;
+  msEnsurePlot();
+  const hz = Math.max(0.5, parseFloat(document.getElementById('msHz').value)||10);
+  pollTimer = setInterval(async ()=>{ if(ms.isOpen()){ await ms.write('READ?\n'); } }, 1000/hz);
+  document.getElementById('msStart').disabled = true;
+  document.getElementById('msStop').disabled = false;
+}
+function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } document.getElementById('msStart').disabled = false; document.getElementById('msStop').disabled = true; }
+document.getElementById('msStart').addEventListener('click', startPoll);
+document.getElementById('msStop').addEventListener('click', stopPoll);
+
+// --- Log hook: parse CSV with up to 5 numbers and plot all traces
+(function wireMsPlotFromLog(){
+  const orig = ms.log;
+  ms.log = (s)=> {
+    orig(s);
+    if(!s.startsWith('« ')) return;
+    const line = s.slice(2).trim(); // e.g., "OK READ 0.123,0.456,..."
+    const m = line.match(/([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)(?:\s*,\s*|$)/g);
+    if(!m) return;
+    // If the master prefixes "OK READ ", remove it before CSV parse:
+    const csv = line.replace(/^OK READ\s*/i,'');
+    const parts = csv.split(/\s*,\s*/).filter(Boolean);
+    if (!parts.length) return;
+
+    msEnsurePlot();
+    const t = (performance.now())/1000;
+    if (msData.ys.length !== chCount) msResetPlot(chCount);
+
+    const n = Math.min(chCount, parts.length);
+    const xObj = { x: Array.from({length:n}, _=>[t]) };
+    const yObj = { y: Array.from({length:n}, (__,i)=>[parseFloat(parts[i])]) };
+    const idxs = Array.from({length:n}, (_,i)=>i);
+
+    msData.t.push(t);
+    for (let i=0;i<n;i++) msData.ys[i].push(parseFloat(parts[i]));
+
+    Plotly.extendTraces('msPlot', xObj, idxs, 2000);
+    Plotly.extendTraces('msPlot', yObj, idxs, 2000);
+  };
+})();
+
+document.getElementById('msSave').addEventListener('click', ()=>{
+  if(!msData.t.length) return;
+  let header = 't_s';
+  for (let i=0;i<chCount;i++) header += `,ch${i+1}`;
+  let csv = header + '\n';
+  for (let r=0;r<msData.t.length;r++){
+    let row = msData.t[r].toFixed(6);
+    for (let i=0;i<chCount;i++){
+      const y = msData.ys[i][r];
+      row += ',' + (isFinite(y) ? y : '');
+    }
+    csv += row + '\n';
+  }
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:'current_log_5ch.csv'});
+  a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1500);
+});
+
+(function(){
+  const dev = ()=> window.ms;                 // reuse Master/Slave port
+  const logEl = document.getElementById('lensLog');
+  const log = (s)=>{ logEl.textContent += (logEl.textContent?'\n':'') + s; logEl.scrollTop = logEl.scrollHeight; };
+  const ids = [1,2,3,4,5];
+
+  // init values
+  ids.forEach(i=>{
+    const r = document.getElementById('L'+i);
+    const n = document.getElementById('L'+i+'Num');
+    r.value = n.value = (localStorage.getItem('lensV'+i) ?? '0.00');
+  });
+
+  function clamp5(v){ v = parseFloat(v); if(!isFinite(v)) v=0; return Math.min(5, Math.max(0, v)); }
+  const debouncers = {};
+
+  function sendOne(i, v){
+    const d = dev();
+    if(!d || !d.isOpen()){ log('Connect Master/Slave first.'); return; }
+    const val = clamp5(v);
+    localStorage.setItem('lensV'+i, val.toFixed(2));
+    //d.write(`V ${i} ${val.toFixed(2)}\n`);
+    d.write(`V${i}=${val.toFixed(2)}\n`);
+    log(`» V ${i} ${val.toFixed(2)}`);
+  }
+
+  function sendAll(){
+    const d = dev();
+    if(!d || !d.isOpen()){ log('Connect Master/Slave first.'); return; }
+    const vals = ids.map(i=> clamp5(document.getElementById('L'+i+'Num').value).toFixed(2));
+    d.write(`VALL ${vals.join(',')}\n`);
+    log(`» VALL ${vals.join(',')}`);
+    // persist
+    ids.forEach((i,idx)=> localStorage.setItem('lensV'+i, (+vals[idx]).toFixed(2)));
+  }
+
+  function linkUpdate(fromIdx, val){
+    const linked = document.getElementById('linkAll').checked;
+    if(!linked) return;
+    ids.forEach(i=>{
+      if(i===fromIdx) return;
+      const r = document.getElementById('L'+i);
+      const n = document.getElementById('L'+i+'Num');
+      r.value = n.value = val.toFixed(2);
+    });
+    sendAll();
+  }
+
+  // Wire sliders & numbers
+  ids.forEach(i=>{
+    const r = document.getElementById('L'+i);
+    const n = document.getElementById('L'+i+'Num');
+
+    const syncFrom = (srcEl)=>{
+      const val = clamp5(srcEl.value);
+      r.value = n.value = val.toFixed(2);
+      // debounce single V command to avoid spamming
+      clearTimeout(debouncers[i]);
+      debouncers[i] = setTimeout(()=> sendOne(i, val), 150);
+      linkUpdate(i, val);
+    };
+
+    r.addEventListener('input', ()=> syncFrom(r));
+    n.addEventListener('input', ()=> syncFrom(n));
+  });
+
+  // Buttons
+  document.getElementById('lensZero').addEventListener('click', ()=>{
+    ids.forEach(i=>{
+      document.getElementById('L'+i).value = document.getElementById('L'+i+'Num').value = '0.00';
+      localStorage.setItem('lensV'+i, '0.00');
+    });
+    sendAll();
+  });
+  document.getElementById('lensSendAll').addEventListener('click', sendAll);
+
+  // Show quick hint if ms isn’t open yet
+  if(!dev() || !dev().isOpen()) log('Tip: connect the Master/Slave panel above, then move any slider.');
+})();
+
+/* ========= 3) Picomotor ========= */
+const pm = makeDevice(document.getElementById('pmLog'), document.getElementById('pmBadge'));
+const posXEl = document.getElementById('pmPosX');
+const posYEl = document.getElementById('pmPosY');
+
+function pmSendFrom(tplId){
+  return async ()=>{
+    if(!pm.isOpen()) return;
+    const steps = parseInt(document.getElementById('pmSteps').value,10)||0;
+    const cmd = document.getElementById(tplId).value.replace('{steps}', String(steps));
+    await pm.write(cmd + "\r\n");
+  };
+}
+
+document.getElementById('pmConnect').addEventListener('click', async ()=>{
+  if(!('serial' in navigator)) return pm.log('Web Serial not supported.');
+  const ok = await pm.connect();
+  if (ok) document.getElementById('pmConnect').disabled = true;
+  ['pmDisconnect','pmLeft','pmRight','pmUp','pmDown','pmStop',
+   'pmReadX','pmReadY','pmZeroX','pmZeroY','pmHomeX','pmHomeY',
+   'pmStartPoll','pmStopPoll'].forEach(id=> document.getElementById(id).disabled=!ok);
+});
+document.getElementById('pmDisconnect').addEventListener('click', async ()=>{
+  await pm.disconnect();
+  document.getElementById('pmConnect').disabled = false;
+  ['pmDisconnect','pmLeft','pmRight','pmUp','pmDown','pmStop',
+   'pmReadX','pmReadY','pmZeroX','pmZeroY','pmHomeX','pmHomeY',
+   'pmStartPoll','pmStopPoll'].forEach(id=> document.getElementById(id).disabled=true);
+  stopPmPoll();
+});
+
+document.getElementById('pmLeft').addEventListener('click',  pmSendFrom('tplLeft'));
+document.getElementById('pmRight').addEventListener('click', pmSendFrom('tplRight'));
+document.getElementById('pmUp').addEventListener('click',    pmSendFrom('tplUp'));
+document.getElementById('pmDown').addEventListener('click',  pmSendFrom('tplDown'));
+document.getElementById('pmStop').addEventListener('click',  pmSendFrom('tplStop'));
+
+/* ---- position readback plumbing ---- */
+let awaitingX = false, awaitingY = false;
+(function wrapPmLogForPos(){
+  const orig = pm.log;
+  pm.log = (s)=>{
+    orig(s);
+    if(s.startsWith('« ')){
+      // Extract first signed/float number from the returned line
+      const line = s.slice(2);
+      const m = line.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
+      if(m){
+        if(awaitingX){ posXEl.textContent = m[0]; awaitingX=false; }
+        else if(awaitingY){ posYEl.textContent = m[0]; awaitingY=false; }
+      }
+    }
+  };
+})();
+
+async function pmReadX(){ if(!pm.isOpen()) return; awaitingX=true; awaitingY=false; await pm.write(document.getElementById('tplPosX').value + "\r\n"); }
+async function pmReadY(){ if(!pm.isOpen()) return; awaitingY=true; awaitingX=false; await pm.write(document.getElementById('tplPosY').value + "\r\n"); }
+
+document.getElementById('pmReadX').addEventListener('click', pmReadX);
+document.getElementById('pmReadY').addEventListener('click', pmReadY);
+
+document.getElementById('pmZeroX').addEventListener('click', ()=> pm.write(document.getElementById('tplZeroX').value + "\r\n"));
+document.getElementById('pmZeroY').addEventListener('click', ()=> pm.write(document.getElementById('tplZeroY').value + "\r\n"));
+document.getElementById('pmHomeX').addEventListener('click', ()=> pm.write(document.getElementById('tplHomeX').value + "\r\n"));
+document.getElementById('pmHomeY').addEventListener('click', ()=> pm.write(document.getElementById('tplHomeY').value + "\r\n"));
+
+/* ---- auto-poll both axes ---- */
+let pmPollTimer = null;
+function startPmPoll(){
+  if(pmPollTimer || !pm.isOpen()) return;
+  const hz = Math.max(0.5, parseFloat(document.getElementById('pmHz').value)||2);
+  pmPollTimer = setInterval(async ()=>{
+    if(!pm.isOpen()){ stopPmPoll(); return; }
+    // Query sequentially to avoid response ambiguity
+    await pmReadX();
+    setTimeout(pmReadY, 40); // slight spacing between queries
+  }, 1000/hz);
+}
+function stopPmPoll(){ if(pmPollTimer){ clearInterval(pmPollTimer); pmPollTimer=null; } }
+document.getElementById('pmStartPoll').addEventListener('click', startPmPoll);
+document.getElementById('pmStopPoll').addEventListener('click', stopPmPoll);
+
+/* ========= Safety ========= */
+if(!('serial' in navigator)){
+  document.querySelectorAll('.btn').forEach(b=> b.disabled=true);
+  document.querySelectorAll('.badge').forEach(b=> b.textContent='Web Serial unsupported');
+}
+
+</script>
+</body>
+</html>

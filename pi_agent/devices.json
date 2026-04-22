@@ -1,0 +1,12 @@
+{
+  "devices": [
+    {"type": "motor", "id": "arm_motor", "port": "/dev/ttyUSB0", "baud": 9600},
+    {"type": "oled", "id": "glasses", "port": "/dev/ttyACM0", "baud": 9600},
+    {"type": "camera", "id": "main_cam", "resolution": [640, 480], "camera_index": 0},
+    {"type": "temperature", "id": "temp1", "port": "/dev/ttyUSB0", "baud": 9600},
+    {"type": "gyroscope", "id": "imu", "port": "/dev/ttyUSB0", "baud": 9600},
+    {"type": "ultrasonic", "id": "us1", "port": "/dev/ttyUSB0", "baud": 9600},
+    {"type": "vibration", "id": "vib1", "port": "/dev/ttyUSB0", "baud": 9600},
+    {"type": "tens", "id": "tens1", "port": "/dev/ttyUSB0", "baud": 9600, "max_intensity": 100, "max_duration_s": 30}
+  ]
+}

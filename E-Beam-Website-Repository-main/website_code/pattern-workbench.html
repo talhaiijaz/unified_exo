@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CNT–Einzel Lens Studio · Pattern Workbench</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-wrap">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1 class="brand-title">CNT–Einzel Lens Studio</h1>
+          <p class="brand-sub">Legacy auxiliary pages integrated into the main site</p>
+        </div>
+      </div>
+      
+      <nav class="tabs" aria-label="Primary">
+        <a class="tab " href="index.html">Study page</a>
+        <a class="tab " href="theory.html">Theory &amp; design</a>
+        <a class="tab active" href="pattern-workbench.html">Pattern workbench</a>
+        <a class="tab " href="hardware.html">Hardware control</a>
+        <a class="tab " href="current-monitor.html">Current monitor</a>
+      </nav>
+
+    </div>
+  </header>
+
+  <main class="container page-shell">
+    <section class="hero card">
+      <div class="hero-copy">
+        <h2>Pattern workbench</h2>
+        <p>
+          This is the older browser-side patterning page, restyled to match the CNT–Einzel site.
+          It keeps the painter, playback, and quick process-estimate workflow while living inside the same navigation system.
+        </p>
+      </div>
+      <div class="hero-badges">
+        <span class="badge">Legacy tool preserved</span>
+        <span class="badge">Pyodide in browser</span>
+      </div>
+    </section>
+
+    <section class="workbench-grid">
+      <section class="card workbench-card">
+        <div class="card-header">
+          <h2 class="card-title">Pattern painter</h2>
+          <p class="card-sub">Draw a binary pattern, then preview the staged fill playback below.</p>
+        </div>
+        <div class="workbench-body">
+          <h3 class="subsection-title">Painter</h3>
+          <canvas id="grid" width="500" height="500" class="canvas"></canvas>
+          <div class="toolbar">
+            <label>Brush
+              <input id="brush" type="range" min="1" max="9" step="2" value="1" />
+            </label>
+            <button id="eraser" type="button" class="btn btn-ghost">Eraser</button>
+            <button id="clear" type="button" class="btn btn-ghost">Clear</button>
+          </div>
+
+          <h3 class="subsection-title">Grid fill playback</h3>
+          <canvas id="sim" width="500" height="500" class="canvas"></canvas>
+          <div class="toolbar">
+            <label>Speed
+              <input id="speed" type="range" min="1" max="10" step="1" value="6" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card workbench-card">
+        <div class="card-header">
+          <h2 class="card-title">Experiment parameters</h2>
+          <p class="card-sub">The parameter form and JSON outputs from the original page, now inside the site-wide card layout.</p>
+        </div>
+        <div class="workbench-body">
+          <form id="params" class="controls form-like-grid">
+            <div class="grid two workbench-form-grid">
+              <label>Beam Current (μA)
+                <input id="beam_current" name="beam_current" type="number" step="any" value="0.5" />
+              </label>
+              <label>Minimum Spot Radius (nm)
+                <input id="min_spot_radius_nm" name="min_spot_radius_nm" type="number" step="any" value="500" />
+              </label>
+              <label>CNT Grid Shape — Rows
+                <input id="cnt_rows" name="cnt_rows" type="number" step="1" min="1" value="5" />
+              </label>
+              <label>CNT Grid Shape — Cols
+                <input id="cnt_cols" name="cnt_cols" type="number" step="1" min="1" value="4" />
+              </label>
+              <label>CNT Spacing X (nm)
+                <input id="cnt_spacing_x_nm" name="cnt_spacing_x_nm" type="number" step="any" value="10000" />
+              </label>
+              <label>CNT Spacing Y (nm)
+                <input id="cnt_spacing_y_nm" name="cnt_spacing_y_nm" type="number" step="any" value="10000" />
+              </label>
+              <label>Wafer Width (nm)
+                <input id="wafer_w_nm" name="wafer_w_nm" type="number" step="any" value="100000" />
+              </label>
+              <label>Wafer Height (nm)
+                <input id="wafer_h_nm" name="wafer_h_nm" type="number" step="any" value="100000" />
+              </label>
+              <label>Required Dosage (μC/cm²)
+                <input id="required_dose" name="required_dose" type="number" step="any" value="100" />
+              </label>
+              <label>Min Motor Step (nm)
+                <input id="motor_min_step_nm" name="motor_min_step_nm" type="number" step="any" value="50" />
+              </label>
+              <label>Max Motor Velocity (nm/s)
+                <input id="motor_max_velocity_nm_s" name="motor_max_velocity_nm_s" type="number" step="any" value="100000" />
+              </label>
+            </div>
+            <button type="submit" class="btn workbench-submit">Run experiment</button>
+          </form>
+
+          <div class="workbench-output-grid">
+            <section>
+              <label for="status" class="output-label">Status</label>
+              <pre id="status" class="log-box compact-log"></pre>
+            </section>
+
+            <section>
+              <label for="derived" class="output-label">Derived</label>
+              <pre id="derived" class="log-box compact-log"></pre>
+            </section>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

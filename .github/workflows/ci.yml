@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Python (lint + imports)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install server dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r server/requirements.txt
+          pip install ruff
+
+      - name: Install pi_agent dependencies
+        run: pip install -r pi_agent/requirements.txt
+
+      - name: Lint with ruff (non-strict)
+        run: ruff check server/ pi_agent/ || true
+
+      - name: Server import smoke test
+        working-directory: server
+        run: python -c "import sys; sys.path.insert(0, '.'); import config; from comm import ConnectionManager; from app import app, connection_manager; print('OK')"
+
+      - name: Pi agent import smoke test
+        working-directory: pi_agent
+        run: python -c "import sys; sys.path.insert(0, '.'); import config; from devices import DEVICE_REGISTRY; from agent import ClientAgent; assert len(DEVICE_REGISTRY) >= 8; print(f'OK {len(DEVICE_REGISTRY)} devices')"
+
+  frontend:
+    name: Frontend (TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nanotech_website
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: nanotech_website/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm tsc --noEmit || true
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build -t exo-server ./server
+
+      - name: Build pi_agent image
+        run: docker build -t exo-pi-agent ./pi_agent
+
+      - name: Build frontend image
+        run: docker build -t exo-frontend ./nanotech_website
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required docs exist
+        run: |
+          for f in README.md ARCHITECTURE.md DEPLOYMENT.md CONTRIBUTING.md LICENSE server/README.md server/.env.example pi_agent/README.md pi_agent/.env.example pi_agent/DEVICES.md arduino/README.md arduino/WIRING.md nanotech_website/EXO_README.md nanotech_website/.env.example; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required documentation file $f"
+              exit 1
+            fi
+          done
+          echo "All required documentation files present."

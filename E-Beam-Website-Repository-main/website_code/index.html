@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CNT–Einzel Lens Studio</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-wrap">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1 class="brand-title">CNT–Einzel Lens Studio</h1>
+          <p class="brand-sub">Browser-side electrostatics and trajectory tracing with Pyodide</p>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Primary">
+        <a class="tab active " href="index.html">Study page</a>
+        <a class="tab " href="theory.html">Theory &amp; design</a>
+        <a class="tab " href="pattern-workbench.html">Pattern workbench</a>
+        <a class="tab " href="hardware.html">Hardware control</a>
+        <a class="tab " href="current-monitor.html">Current monitor</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container page-shell">
+    <section class="hero card">
+      <div class="hero-copy">
+        <h2>Interactive CNT forest + Einzel lens simulation</h2>
+        <p>
+          Tune lens geometry, dielectric loading, emission parameters, grid resolution, and launch settings.
+          Solve the electrostatic field in-browser, inspect the potential and field maps, and trace an electron bundle
+          through the device with reflected trajectories for clarity.
+        </p>
+      </div>
+      <div class="hero-badges">
+        <span class="badge" id="runtimeBadge">Starting runtime…</span>
+        <span class="badge">No server-side compute</span>
+      </div>
+    </section>
+
+    <section class="layout-main">
+      <aside class="left-column">
+        <div class="card controls-card">
+          <div class="card-header">
+            <h2 class="card-title">Simulation controls</h2>
+            <p class="card-sub">Every parameter includes a short description so the page can stand on its own.</p>
+          </div>
+          <div class="controls-body">
+            <div id="formSections"></div>
+
+            <div class="actions-stack">
+              <div class="button-row">
+                <button id="restoreDefaultsBtn" class="btn btn-ghost" type="button">Restore defaults</button>
+                <button id="solveFieldBtn" class="btn" type="button">Solve field</button>
+                <button id="solveTraceBtn" class="btn" type="button">Solve + trace bundle</button>
+              </div>
+              <div class="button-row secondary-row">
+                <button id="traceOnlyBtn" class="btn btn-ghost" type="button">Trace with cached field</button>
+                <button id="copyConfigBtn" class="btn btn-ghost" type="button">Copy config JSON</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Status log</h2>
+            <p class="card-sub">Field solves and bundle traces can take a while at larger grids.</p>
+          </div>
+          <pre id="statusLog" class="log-box">Waiting for the worker…</pre>
+        </div>
+      </aside>
+
+      <section class="right-column">
+        <div class="cards-grid" id="summaryCards"></div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Electrostatic potential</h2>
+            <p class="card-sub">Axisymmetric <span class="mono">V(r,z)</span> with conductor overlays.</p>
+          </div>
+          <div id="potentialPlot" class="plot"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Electric-field magnitude</h2>
+            <p class="card-sub">Log-scaled <span class="mono">|E(r,z)|</span> for locating extraction and focusing regions.</p>
+          </div>
+          <div id="fieldPlot" class="plot"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Trajectory bundle over reflected field map</h2>
+            <p class="card-sub">The bundle is mirrored across the axis for visual clarity, regardless of launch symmetry.</p>
+          </div>
+          <div id="trajectoryPlot" class="plot tall-plot"></div>
+        </div>
+
+        <div class="two-up">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Axis profiles</h2>
+              <p class="card-sub">Useful for checking the accelerating and refocusing structure along the axis.</p>
+            </div>
+            <div id="axisPlot" class="plot"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Beam diagnostics vs. z</h2>
+              <p class="card-sub">Weighted RMS radius and magnification from transmitted rays.</p>
+            </div>
+            <div id="beamPlot" class="plot"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Resolution and validation checks</h2>
+            <p class="card-sub">A lightweight browser-side substitute for the notebook’s mesh-study workflow.</p>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="resolutionTable">
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>Cells across</th>
+                  <th>Verdict</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,818 @@
+'''
+'''
+## einzel lens simulation
+##@author: Surya Tallavarjula
+'''
+'''
+import scipy
+import matplotlib.pyplot as plt
+import numpy as np
+electron_charge = -1.602 * 10**(-19)
+electron_mass = 9.10938 * 10**(-31)
+epsilon_naught = 8.854 * 10**(-12)
+speed_of_light = 3.0 * 10**8
+
+class lens:
+    
+    def __init__(self, Drawing_Voltage, Plate_Locations, Plate_Voltages, Apperture_Radii = [], E_Charge = electron_charge, E_Mass = electron_mass):
+        
+        ## Electrons_Kinetic_Energy = A float. We require that all electrons have the same kinetic energy in order for lens to be operational
+        ## A list of floating point locations for each plate
+        ## A list of floating point voltages for each plate
+        
+        ## Assumptions:
+        # All SI Units
+        # All Electrons have same kinetic energy
+        # Small angle approx.
+        # Apperture of each plate large enough to allow electrons to pass through, small enough to allow E-Field between each pair of plates to reach a uniform distribution in z-dir
+        # E-Field before and after lens is zero (or negligible)
+        # Other mathematical aproximations in lens calculations are valid (ex: rel small z-accel between uniform fields)
+        
+        #Plate_Locations and Plate_Voltages should be in sequence of increasing z and should be same length
+        
+        ##Future Work
+        # Our Code does not account for error. In the future, we can for instance calculate what percentage of electrons will pass through the apperture based on apperture thickness of diameter
+      
+        
+        self.Base_Voltage = Drawing_Voltage
+        self.Plate_Locations = Plate_Locations
+        self.Plate_Voltages = Plate_Voltages
+        self.Apperture_Radii = Apperture_Radii
+        self.Apperture_Radius = Apperture_Radii[0]
+        self.Electron_Energies = Drawing_Voltage * -E_Charge
+         ##For now, let's assume we have an einzel lens! 3 equidistant plates, the outer two are grounded, middle has voltage V0
+        self.V = self.Plate_Voltages[1] 
+        self.D = self.Plate_Locations[1] - self.Plate_Locations[0]
+        ## The charges are in units charge per unit area
+        self.charges = [self.V * epsilon_naught / (self.D), -2 * self.V * epsilon_naught/(self.D), self.V *epsilon_naught /(self.D)]
+        self.Electron_Charge = E_Charge
+        self.Electron_Mass = E_Mass
+        
+        if (self.is_valid() == False):
+            print("This is not a physically valid lens\n")
+        
+        else:
+            print("This is a valid lens\n")
+
+    def set_energy(self, Voltage):
+         self.Base_Voltage = Voltage
+         self.Electron_Energies = Voltage * -self.Electron_Charge
+        
+    def is_valid(self):
+        if (len(self.Plate_Locations) != len(self.Plate_Voltages)):
+            print("there should be as manny plate locations as voltages")
+            return False
+        return True
+    
+    def Calculate_Focal_Length(self):
+        focal_lengths = []
+        for i in range(len(self.Plate_Locations)):
+            
+            if (i == 0):
+                ## First E-Field is Zero
+                E_1 = 0  #incoming electric field is zero
+                E_2 = (self.Plate_Voltages[i+1] - self.Plate_Voltages[i]) / (self.Plate_Locations[i+1] - self.Plate_Locations[i])
+                focal_lengths += [4*self.Base_Voltage / (E_2 - E_1)]
+                
+            elif (i==len(self.Plate_Locations) - 1):
+                E_1 = (self.Plate_Voltages[i] - self.Plate_Voltages[i-1]) / (self.Plate_Locations[i] - self.Plate_Locations[i - 1])
+                E_2 = 0  #outgoing electric field is zero
+                focal_lengths += [4*(self.Base_Voltage + self.Plate_Voltages[i]) / (E_2 - E_1)]
+                
+            else:
+                E_1 = (self.Plate_Voltages[i] - self.Plate_Voltages[i-1]) / (self.Plate_Locations[i] - self.Plate_Locations[i - 1])
+                E_2 = (self.Plate_Voltages[i+1] - self.Plate_Voltages[i]) / (self.Plate_Locations[i+1] - self.Plate_Locations[i])
+                focal_lengths += [4*(self.Base_Voltage  + self.Plate_Voltages[i]) / (E_2 - E_1)]
+                
+                ##Loop through all of the appertures individually
+            
+        self.focal_length = 0
+        
+        for i in focal_lengths:
+            self.focal_length += 1/i
+            
+        self.focal_length = 1/self.focal_length
+        
+        ##this is the system focal length
+        
+        print("The theoretically approximated focal length of this lens is: " + str(self.focal_length))
+        
+ 
+    
+    def Populate_Field_Space(self, points = 100000, factor = 1/30, space_factor = 5):
+        ## Using the apperture radii and voltages of the plates, calculate the electric field at a certain number of points within the system
+        
+        #first, we need to define the radius of our field space. This is the radius of the smallest apperture. For all larger radii, the particles will not pass
+        radius = min(self.Apperture_Radii)
+        self.radius = radius
+        ## Since the electric field will extend outward into free space, we need to define some minimum and
+        ## maximum z such that any points outside of this region will have negligeable electric field
+        '''
+        Future Work / Optimizations:
+        In the future, we can calculate the minimum and maximum z explicitly, but for now we say that it is 2*r for each side
+        '''
+        
+        z_min = min(self.Plate_Locations) - space_factor * (self.Plate_Locations[1]-self.Plate_Locations[0])
+        z_max = max(self.Plate_Locations) + space_factor * (self.Plate_Locations[1]-self.Plate_Locations[0])
+        
+        self.z_min = z_min
+        self.z_max = z_max
+        
+        ## We need to populate points within this region in stages:
+        ## from min_z to first apperture, then between each of the apperture pairs, then from the final apperture to max_z
+        
+        ## We only need to populate from 0 to r: the region from 0 to -r is merely the reflection across the z-axis
+        space_Area = radius * (z_max - z_min)
+        
+        ## we have one electric field vector per point
+        ## The question is: how do we want to distribute our electric field points? We need more detail about the r-axis
+        ## then the z-axis, as we are assuming minimal z-axis acceleration relatively speaking
+        ## For now we will preserve the scaling of free space: points will be equally spaced out along r and z
+        '''
+        Future Work / Optimizations:
+        Calculate the most optimal way to space points out to capture the detail of the field that we need most.
+        Using direct, proportional scaling for now since E-Field scales somewhat equally w/ resect to r and z.
+        '''
+        area_Per_Point = space_Area / points
+        unit_length_r = area_Per_Point**(1/2) * factor
+        unit_length_z = area_Per_Point**(1/2) / factor
+        total_points_r = int(radius / unit_length_r)
+        total_points_z = int((z_max - z_min) / unit_length_z)
+        
+        self.unit_length_r = unit_length_r
+        self.unit_length_z = unit_length_z
+        self.total_points_r = total_points_r
+        self.total_points_z = total_points_z
+        
+        ## we will store the electric field data in an array!
+        
+        ## We will go through a nested loop, outer loop going through z-positions and inner loop going through r
+        ## The loop will check for which 'section we are in', which will determine what the electric field calculation will consider
+        
+        Electric_Field_ZDATA = np.zeros(points)
+        Electric_Field_RDATA = np.zeros(points)
+        
+    
+        
+        
+        for z_index in range(total_points_z):
+            for r_index in range(total_points_r):
+                z_pos = z_min + unit_length_z * z_index
+                r_pos = unit_length_r * r_index
+                if (z_pos < self.Plate_Locations[0]):
+                    # we are in front of the first plate
+                    index = 0
+                    BG_Field = 0
+
+                    '''
+                    sigma1 = self.charges[index]
+                    app_radius = self.Apperture_Radii[index]
+                    app_zpos = self.Plate_Locations[index]
+                    
+                    coefficient = (2 * sigma1*app_radius**2/np.pi/epsilon_naught) / (1 - (2*app_radius / (((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)+((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)+((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2))**2
+                    E_Plate_r = coefficient * ( (r_pos + app_radius) / ((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)  +  (r_pos - app_radius) / ((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2) )
+                    E_Plate_z = coefficient * ( (z_pos - app_zpos) / ((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)  +  (z_pos - app_zpos) / ((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2) )
+                    
+                    Electric_Field_ZDATA[r_index * total_points_z + z_index] = BG_Field - E_Plate_z
+                    Electric_Field_RDATA[r_index * total_points_z + z_index] = 0 - E_Plate_r
+                    '''
+                    sigma1 = self.charges[0]
+                    app1_radius = self.Apperture_Radii[0]
+                    app1_zpos = self.Plate_Locations[0]
+                    
+                    coefficient = (2 * sigma1*app1_radius**2/np.pi/epsilon_naught) / (1 - (2*app1_radius / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2))**2
+                    E_Plate_1_r = coefficient * ( (r_pos + app1_radius) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (r_pos - app1_radius) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    E_Plate_1_z = coefficient * ( (z_pos - app1_zpos) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (z_pos - app1_zpos) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    
+                    sigma2 = self.charges[1]
+                    app2_radius = self.Apperture_Radii[1]
+                    app2_zpos = self.Plate_Locations[1]
+                    
+                    coefficient = (2 * sigma2*app2_radius**2/np.pi/epsilon_naught) / (1 - (2*app2_radius / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2))**2
+                    E_Plate_2_r = coefficient * ( (r_pos + app2_radius) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (r_pos - app2_radius) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+                    E_Plate_2_z = coefficient * ( (z_pos - app2_zpos) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (z_pos - app2_zpos) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+
+                    sigma3 = self.charges[2]
+                    app3_radius = self.Apperture_Radii[2]
+                    app3_zpos = self.Plate_Locations[2]
+                    
+                    coefficient = (2 * sigma3*app3_radius**2/np.pi/epsilon_naught) / (1 - (2*app3_radius / (((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)+((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)+((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2))**2
+                    E_Plate_3_r = coefficient * ( (r_pos + app3_radius) / ((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)  +  (r_pos - app3_radius) / ((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2) )
+                    E_Plate_3_z = coefficient * ( (z_pos - app3_zpos) / ((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)  +  (z_pos - app3_zpos) / ((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2) )
+
+                    Electric_Field_ZDATA[r_index * total_points_z + z_index] = BG_Field - E_Plate_1_z - E_Plate_2_z - E_Plate_3_z
+                    Electric_Field_RDATA[r_index * total_points_z + z_index] = 0 - E_Plate_1_r - E_Plate_2_r - E_Plate_3_r
+                    
+                elif (z_pos > self.Plate_Locations[len(self.Plate_Locations) - 1]):
+                    # we are after the second plate
+                    index = len(self.Plate_Locations) - 1
+                    BG_Field = 0
+
+                    '''
+                    sigma1 = self.charges[index]
+                    app_radius = self.Apperture_Radii[index]
+                    app_zpos = self.Plate_Locations[index]
+                    
+                    coefficient = (2 * sigma1*app_radius**2/np.pi/epsilon_naught) / (1 - (2*app_radius / (((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)+((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)+((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2))**2
+                    E_Plate_r = coefficient * ( (r_pos + app_radius) / ((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)  +  (r_pos - app_radius) / ((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2) )
+                    E_Plate_z = coefficient * ( (z_pos - app_zpos) / ((r_pos + app_radius)**2 + (z_pos - app_zpos)**2)**(1/2)  +  (z_pos - app_zpos) / ((r_pos - app_radius)**2 + (z_pos - app_zpos)**2)**(1/2) )
+                    
+                    Electric_Field_ZDATA[r_index * total_points_z + z_index] = BG_Field - E_Plate_z
+                    Electric_Field_RDATA[r_index * total_points_z + z_index] = 0 - E_Plate_r
+                    '''
+                    sigma1 = self.charges[0]
+                    app1_radius = self.Apperture_Radii[0]
+                    app1_zpos = self.Plate_Locations[0]
+                    
+                    coefficient = (2 * sigma1*app1_radius**2/np.pi/epsilon_naught) / (1 - (2*app1_radius / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2))**2
+                    E_Plate_1_r = coefficient * ( (r_pos + app1_radius) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (r_pos - app1_radius) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    E_Plate_1_z = coefficient * ( (z_pos - app1_zpos) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (z_pos - app1_zpos) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    
+                    sigma2 = self.charges[1]
+                    app2_radius = self.Apperture_Radii[1]
+                    app2_zpos = self.Plate_Locations[1]
+                    
+                    coefficient = (2 * sigma2*app2_radius**2/np.pi/epsilon_naught) / (1 - (2*app2_radius / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2))**2
+                    E_Plate_2_r = coefficient * ( (r_pos + app2_radius) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (r_pos - app2_radius) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+                    E_Plate_2_z = coefficient * ( (z_pos - app2_zpos) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (z_pos - app2_zpos) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+
+                    sigma3 = self.charges[2]
+                    app3_radius = self.Apperture_Radii[2]
+                    app3_zpos = self.Plate_Locations[2]
+                    
+                    coefficient = (2 * sigma3*app3_radius**2/np.pi/epsilon_naught) / (1 - (2*app3_radius / (((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)+((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)+((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2))**2
+                    E_Plate_3_r = coefficient * ( (r_pos + app3_radius) / ((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)  +  (r_pos - app3_radius) / ((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2) )
+                    E_Plate_3_z = coefficient * ( (z_pos - app3_zpos) / ((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)  +  (z_pos - app3_zpos) / ((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2) )
+
+                    Electric_Field_ZDATA[r_index * total_points_z + z_index] = BG_Field - E_Plate_1_z - E_Plate_2_z - E_Plate_3_z
+                    Electric_Field_RDATA[r_index * total_points_z + z_index] = 0 - E_Plate_1_r - E_Plate_2_r - E_Plate_3_r
+                    
+                else:
+                    # we are in between two plates. we need to find the index of the left and right plate
+                    # how do we do this efficiently?
+                    l_index = 0
+                    a_index = 0
+                    for i in range(len(self.Plate_Locations)):
+                        if (z_pos > self.Plate_Locations[i]):
+                            l_index = i
+                            break
+                        elif (z_pos == self.Plate_Locations):
+                            l_index = -1
+                    if (l_index == -1):
+                        #Electric Field exactly inside the cavity is zero
+                        Electric_Field_ZDATA[r_index * total_points_z + z_index] = 0
+                        Electric_Field_RDATA[r_index * total_points_z + z_index] = 0
+                        continue
+                        
+                    a_index = l_index + 1
+                   
+
+                    ## We now have the index of the left and right plates and we handled the potential error case!
+                    BG_Field = (self.Plate_Voltages[a_index] - self.Plate_Voltages[l_index]) / (self.Plate_Locations[a_index] - self.Plate_Locations[l_index])
+
+                    '''
+                    sigma1 = self.charges[l_index]
+                    app1_radius = self.Apperture_Radii[l_index]
+                    app1_zpos = self.Plate_Locations[l_index]
+                    
+                    coefficient = (2 * sigma1*app1_radius**2/np.pi/epsilon_naught) / (1 - (2*app1_radius / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2))**2
+                    E_Plate_L_r = coefficient * ( (r_pos + app1_radius) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (r_pos - app1_radius) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    E_Plate_L_z = coefficient * ( (z_pos - app1_zpos) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (z_pos - app1_zpos) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    
+                    sigma2 = self.charges[r_index]
+                    app2_radius = self.Apperture_Radii[r_index]
+                    app2_zpos = self.Plate_Locations[r_index]
+                    
+                    coefficient = (2 * sigma2*app2_radius**2/np.pi/epsilon_naught) / (1 - (2*app2_radius / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2))**2
+                    E_Plate_R_r = coefficient * ( (r_pos + app2_radius) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (r_pos - app2_radius) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+                    E_Plate_R_z = coefficient * ( (z_pos - app2_zpos) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (z_pos - app2_zpos) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+                    
+                    
+                    Electric_Field_ZDATA[r_index * total_points_z + z_index] = BG_Field - E_Plate_L_z - E_Plate_R_z
+                    Electric_Field_RDATA[r_index * total_points_z + z_index] = 0 - E_Plate_L_r - E_Plate_R_r
+                    '''
+                    sigma1 = self.charges[0]
+                    app1_radius = self.Apperture_Radii[0]
+                    app1_zpos = self.Plate_Locations[0]
+                    
+                    coefficient = (2 * sigma1*app1_radius**2/np.pi/epsilon_naught) / (1 - (2*app1_radius / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)+((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2))**2
+                    E_Plate_1_r = coefficient * ( (r_pos + app1_radius) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (r_pos - app1_radius) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    E_Plate_1_z = coefficient * ( (z_pos - app1_zpos) / ((r_pos + app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2)  +  (z_pos - app1_zpos) / ((r_pos - app1_radius)**2 + (z_pos - app1_zpos)**2)**(1/2) )
+                    
+                    sigma2 = self.charges[1]
+                    app2_radius = self.Apperture_Radii[1]
+                    app2_zpos = self.Plate_Locations[1]
+                    
+                    coefficient = (2 * sigma2*app2_radius**2/np.pi/epsilon_naught) / (1 - (2*app2_radius / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)+((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2))**2
+                    E_Plate_2_r = coefficient * ( (r_pos + app2_radius) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (r_pos - app2_radius) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+                    E_Plate_2_z = coefficient * ( (z_pos - app2_zpos) / ((r_pos + app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2)  +  (z_pos - app2_zpos) / ((r_pos - app2_radius)**2 + (z_pos - app2_zpos)**2)**(1/2) )
+
+                    sigma3 = self.charges[2]
+                    app3_radius = self.Apperture_Radii[2]
+                    app3_zpos = self.Plate_Locations[2]
+                    
+                    coefficient = (2 * sigma3*app3_radius**2/np.pi/epsilon_naught) / (1 - (2*app3_radius / (((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)+((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)))**2)**(1/2) / (((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)+((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2))**2
+                    E_Plate_3_r = coefficient * ( (r_pos + app3_radius) / ((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)  +  (r_pos - app3_radius) / ((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2) )
+                    E_Plate_3_z = coefficient * ( (z_pos - app3_zpos) / ((r_pos + app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2)  +  (z_pos - app3_zpos) / ((r_pos - app3_radius)**2 + (z_pos - app3_zpos)**2)**(1/2) )
+
+                    Electric_Field_ZDATA[r_index * total_points_z + z_index] = BG_Field - E_Plate_1_z - E_Plate_2_z - E_Plate_3_z
+                    Electric_Field_RDATA[r_index * total_points_z + z_index] = 0 - E_Plate_1_r - E_Plate_2_r - E_Plate_3_r
+                
+        
+        self.EField_ZData = Electric_Field_ZDATA
+        self.EField_RData = Electric_Field_RDATA
+        
+        ##Our Electric Field Data is now populated!
+        return
+        
+    def Get_E_Z(self, r, z):
+        r = abs(r) ##sign of r has no effect on magnitude of E_Z
+        r_pos = int(r / self.unit_length_r)
+        z_pos = int((z - self.z_min) / self.unit_length_z)
+        t = r / self.unit_length_r - r_pos
+        s = z / self.unit_length_z - z_pos
+        e00 = self.EField_ZData[r_pos * self.total_points_z + z_pos]
+        if ((r_pos + 1) * self.total_points_z + z_pos > (len(self.EField_ZData) - 1)):
+            return e00
+        e10 = self.EField_ZData[(r_pos + 1) * self.total_points_z + z_pos]
+        e01 = self.EField_ZData[r_pos * self.total_points_z + z_pos + 1]
+        e11 = self.EField_ZData[(r_pos + 1) * self.total_points_z + z_pos + 1]
+        u0 = e00 + s * (e01 - e00)
+        u1 = e10 + s * (e11 - e10)
+        Erz = u0 + t * (u1 - u0)
+        ## Our billinear interpolation is complete, return
+        return Erz
+    
+    def Get_E_R(self, r, z):
+        num = 1
+        if (r < 0):
+            num = -1
+            r = abs(r)
+            
+        r_pos = int(r / self.unit_length_r)
+        z_pos = int((z - self.z_min) / self.unit_length_z)
+        t = r / self.unit_length_r - r_pos
+        s = z / self.unit_length_z - z_pos
+        e00 = self.EField_RData[r_pos * self.total_points_z + z_pos]
+        if ((r_pos + 1) * self.total_points_z + z_pos > (len(self.EField_RData) - 1)):
+            return e00
+        e10 = self.EField_RData[(r_pos + 1) * self.total_points_z + z_pos]
+        e01 = self.EField_RData[r_pos * self.total_points_z + z_pos + 1]
+        e11 = self.EField_RData[(r_pos + 1) * self.total_points_z + z_pos + 1]
+        u0 = e00 + s * (e01 - e00)
+        u1 = e10 + s * (e11 - e10)
+        Erz = u0 + t * (u1 - u0)
+        ## Our billinear interpolation is complete, return
+        ## This implemetation utilizes rotational symmetry to handle negative r
+        return num * Erz
+        
+    def Plot_Electron_Path(self, r_initial, v_r_initial, v_z_initial, iterations = 100):
+        ## We start at the begenning of the lens, where we assume the electric field is nearly zero
+        z = self.z_min
+        r = r_initial
+        v_r = v_r_initial
+        v_z = v_z_initial
+        t = 0
+        
+        dt = (self.z_max - self.z_min) / v_z / iterations
+        
+        ##initialize the plot
+        plt.xlim(self.z_min, self.z_max)
+        plt.ylim(-self.radius, self.radius)
+        plt.xlabel("Z Position")
+        plt.ylabel("Radial Displacement")
+        plt.title("Electron path as it passes through lens")
+        
+        while (z < self.z_max and r < self.radius and r > -self.radius):
+            ##update the positions and plot point!
+            V = np.sqrt(v_r**2 + v_z**2)
+            lorentz_factor = 1 / np.sqrt(1 - V**2 / speed_of_light**2)
+            a_r = self.Electron_Charge * self.Get_E_R(r, z) / self.Electron_Mass * lorentz_factor
+            a_z = self.Electron_Charge * self.Get_E_Z(r, z) / self.Electron_Mass * lorentz_factor
+            dt = (self.z_max - self.z_min) / v_z / iterations
+            r = 1/2 * a_r * dt**2 + v_r * dt + r
+            z = 1/2 * a_z * dt**2 + v_z * dt + z
+            v_r = v_r + a_r * dt
+            v_z = v_z + a_z * dt
+            plt.plot(z, r, marker = 'o', markeredgecolor = 'red', markerfacecolor = 'red')
+            
+        plt.show()
+        
+        ## we can return the focal length based on this path, not guaranteed to be consistent among different points
+        
+        return -r_initial / (v_r/v_z - v_r_initial/v_z_initial)
+    
+    
+    def Simulate_Electron_Path(self, r_initial, v_r_initial, v_z_initial, z_min, iterations = 2000):
+        ## We start at the begenning of the lens, where we assume the electric field is nearly zero
+        z = z_min
+        r = r_initial
+        v_r = v_r_initial
+        v_z = v_z_initial
+        t = 0
+        
+        dt = (self.z_max - self.z_min) / v_z / iterations
+        
+        ##initialize the plot
+        
+        
+        while (z < self.z_max and r < self.radius and r > -self.radius):
+            ##update the positions and plot point!
+            V = np.sqrt(v_r**2 + v_z**2)
+            lorentz_factor = 1 / np.sqrt(1 - V**2 / speed_of_light**2)
+            a_r = self.Electron_Charge * self.Get_E_R(r, z) / self.Electron_Mass * lorentz_factor
+            a_z = self.Electron_Charge * self.Get_E_Z(r, z) / self.Electron_Mass * lorentz_factor
+            dt = (self.z_max - self.z_min) / v_z / iterations
+            r = 1/2 * a_r * dt**2 + v_r * dt + r
+            z = 1/2 * a_z * dt**2 + v_z * dt + z
+            v_r = v_r + a_r * dt
+            v_z = v_z + a_z * dt
+            
+        if (r >= self.radius or r <= -self.radius):
+            ## The idea is that when we test a variety of angles at different starting radii, some rays may not exit the lens.
+            ## We don't want to include these rays. If we return a value of zero, this means the ray exited the plane
+            return 0
+        
+        ## we can return the focal length based on this path, not guaranteed to be consistent among different points
+        
+        return -r_initial / (v_r/v_z - v_r_initial/v_z_initial)
+
+    def Simulate_Electron_Path_B(self, r_initial, v_r_initial, v_z_initial, z_initial, z_final, iterations = 2000):
+        ## We start at the begenning of the lens, where we assume the electric field is nearly zero
+        if z_initial < self.z_min:
+            z = self.z_min
+        else:
+            z = z_initial
+        starting_z = z
+        r = r_initial
+        v_r = v_r_initial
+        v_z = v_z_initial
+        t = 0
+        zf = self.z_max
+        if z_final < self.z_max:
+            zf = z_final
+            
+        
+        dt = (zf - starting_z) / v_z / iterations
+        
+        ##initialize the plot
+        
+        
+        while (z < zf and r < self.radius and r > -self.radius):
+            ##update the positions and plot point!
+            V = np.sqrt(v_r**2 + v_z**2)
+            lorentz_factor = 1 / np.sqrt(1 - V**2 / speed_of_light**2)
+            a_r = self.Electron_Charge * self.Get_E_R(r, z) / self.Electron_Mass * lorentz_factor
+            a_z = self.Electron_Charge * self.Get_E_Z(r, z) / self.Electron_Mass * lorentz_factor
+            dt = (zf - starting_z) / v_z / iterations
+            r = 1/2 * a_r * dt**2 + v_r * dt + r
+            z = 1/2 * a_z * dt**2 + v_z * dt + z
+            v_r = v_r + a_r * dt
+            v_z = v_z + a_z * dt
+            
+        if (r >= self.radius or r <= -self.radius):
+            ## The idea is that when we test a variety of angles at different starting radii, some rays may not exit the lens.
+            ## We don't want to include these rays. If we return a value of zero, this means the ray exited the plane
+            return (1000000000, 0)
+        
+        ## we can return the focal length based on this path, not guaranteed to be consistent among different points
+        
+        return (r, v_r/v_z)
+    
+    def Field_Emmission(self, radius = 5 * 10**-6, active_CNT_fractions = np.array([0.1, 0.5, 1]), CNT_radius = 5 * 10**-9, CNT_spacing = 2 * 10**-9, magnification = 1/20, drawing_voltage = np.array([10, 300]), CNT_to_anode = 750 * 10**-9, A = 1.54*10**-6, B = 6.83* 10**9, FEs = np.array([40, 60, 80]), phi = 4.8):
+
+        ## Electrons will have kinetic energy determined by their charge and the drawing voltage
+        ## The current will be given by Fowler-Nordheim equations
+        ## The angle of emssion will be gaussian distributed with some experimental variance, uniformly distributed over the area of the hole
+
+        ## using the derived focal length and the thin lens equation, we will observe what the spot size looks like. We can perform a gradient descent search in the local area to find the best spot
+        ## along the line of 1/f = 1/a + 1/b, we try to maximize object distance and minimize image distance to acheive the desired spot size. These values will need to be determined algorithmically
+
+
+
+        EmittingAvailableAreaFraction = np.pi*CNT_radius**2 / (np.sqrt(3)/2 * (2*CNT_radius + CNT_spacing)**2)
+        print(EmittingAvailableAreaFraction)
+        Voltages = np.linspace(drawing_voltage[0], drawing_voltage[1])
+
+        for f in active_CNT_fractions:
+            for FE in FEs:
+                Current_Density = A / phi * (FE * Voltages / CNT_to_anode)**2 * np.exp(-B * phi**3/2*CNT_to_anode / Voltages / FE)
+                Current = np.pi * radius**2 * f * EmittingAvailableAreaFraction * Current_Density * 10**9
+                plt.plot(Voltages, Current, label = 'Active CNT fraction = ' + str(f) + ', Field Enhancement = ' + str(FE), color = (np.where(active_CNT_fractions==f)[0][0] / len(active_CNT_fractions), 0, np.where(FEs == FE)[0][0] / len(FEs)))
+        plt.ylim(500, 1000)
+        plt.title("Current vs Voltage")
+        plt.ylabel("Current (nA)")
+        plt.xlabel("Voltage (V)")
+        plt.legend()
+
+        ## The above current density is given via the Fowler-Nordheim equations
+
+        ## we can use the spot-size scaling factor (initial_radius / spot_radius) to compute the current density at the spot from the current density at the start
+
+        ##we first determine the focal length, and from it the desired object distance
+
+
+        # Spot_Size = radius * magnification
+        # spot_current_density = Current_Density * (1/magnification)**2
+        # Power_Unit_Area = drawing_voltage*spot_current_density
+
+        # print("The Current is " + str(Current_Density * np.pi * radius**2) + "\nThe Current Density of electrons at the spot location is " + str(spot_current_density) + "\nThe Power per unit area is " + str(Power_Unit_Area))
+        
+        
+            
+    
+    def Test_Lens(self, angle_range, points_per_lens = 400, points_per_path = 500):
+        ## points is total number of rays being simulated, 
+        ## and angle range is in degrees from -angle_range/2 to angle_range/2
+        ## We have to discard cases where focal length is zero. We also should not test cases where r = 0
+        r_min = -self.radius * 0.3
+        r_max = self.radius * 0.3
+        r_points = int(points_per_lens**(1/2))
+        r_step_size = (r_max - r_min) / r_points
+        
+        angle_points = r_points
+        angle_min = -angle_range / 2
+        angle_max = angle_range / 2
+        angle_step_size = (angle_max - angle_min) / angle_points
+        
+        focal_lengths = []
+        
+        for angle_pos in range(angle_points):
+            for r_pos in range(r_points):
+                r = r_min + r_pos * r_step_size
+                angle = angle_min + angle_pos * angle_step_size
+                if (r == 0):
+                    break
+                theta = angle * np.pi / 180
+                
+                vr = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.sin(theta)
+                vz = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.cos(theta)
+                
+                focal_length = self.Simulate_Electron_Path(r, vr, vz, self.z_min, points_per_path)
+                if (focal_length == 0):
+                    ##Look in simulate electron path: this path will hit a wall of the lens
+                    continue
+                focal_lengths += [focal_length]
+        
+        ## we now have all of our focal
+        focal_sum = 0
+        focal_squared_sum = 0
+        for i in range(len(focal_lengths)):
+            focal_sum += focal_lengths[i]
+            focal_squared_sum += focal_lengths[i]**2
+        
+        focal_mean = focal_sum / len(focal_lengths)
+        standard_deviation = (focal_squared_sum / len(focal_lengths) - (focal_sum / len(focal_lengths))**2)**(1/2)
+        
+        print("The focal length of this lens is " + str(focal_mean) + " meters.\nIts standard deviation is " + str(standard_deviation))
+        self.focal_mean = focal_mean
+        self.focal_std = standard_deviation
+        
+        return focal_mean
+    
+    def Visualize_Path(self, iterations = 2000, starting_radius = 0.5):
+        z = self.z_min
+        r = self.radius * starting_radius
+        r_initial = r
+        v_r = 0
+        v_z = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)
+        t = 0
+        
+        dt = (self.z_max - self.z_min) / v_z / iterations
+        
+        ##initialize the plot
+        plt.xlim(self.z_min, self.z_max)
+        
+        plt.xlabel("Z Position")
+        plt.ylabel("Radial Displacement")
+        plt.title("Electron path as it passes through lens")
+        plt.axvline(x=self.Plate_Locations[0], color='black', linestyle='--')
+        plt.axvline(x=self.Plate_Locations[1], color='black', linestyle='--')
+        plt.axvline(x=self.Plate_Locations[2], color='black', linestyle='--')
+        
+        while (z < self.z_max and r < self.radius and r > -self.radius):
+            ##update the positions and plot point!
+            V = np.sqrt(v_r**2 + v_z**2)
+            lorentz_factor = 1 / np.sqrt(1 - V**2 / speed_of_light**2)
+            a_r = self.Electron_Charge * self.Get_E_R(r, z) / self.Electron_Mass * lorentz_factor
+            a_z = self.Electron_Charge * self.Get_E_Z(r, z) / self.Electron_Mass * lorentz_factor
+            dt = (self.z_max - self.z_min) / v_z / iterations
+            r = 1/2 * a_r * dt**2 + v_r * dt + r
+            z = 1/2 * a_z * dt**2 + v_z * dt + z
+            v_r = v_r + a_r * dt
+            v_z = v_z + a_z * dt
+            plt.plot(z, r, marker = 'o', markeredgecolor = 'red', markerfacecolor = 'red', markersize = 1)
+            
+            
+        plt.show()
+        
+        ## we can return the focal length based on this path, not guaranteed to be consistent among different points
+        
+        print(str(-r_initial / (v_r/v_z)))
+    def visualize_scatter(self, a, b, CNT_forest_radius, points_per_lens, points_per_path, angular_variance = 0.0001, filter_radius = 0.8):
+        
+        ## we will assume we have a perfect skimmer, i.e all particles that would hit the edges of te lens are removed
+        starting_radii = CNT_forest_radius * np.sqrt(1 - np.random.uniform(0, 1.0, points_per_lens))
+        starting_theta = np.random.normal(0, angular_variance, points_per_lens)
+        phi_values = np.random.uniform(0, 2*np.pi, points_per_lens)
+        
+        plt.title("scatter of emitted electrons from the source")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.scatter(starting_radii * np.cos(phi_values), starting_radii * np.sin(phi_values))
+        plt.show()
+        
+        lens_incidence_radii = []
+        lens_incidence_theta = []
+
+        starting_x = self.Plate_Locations[0] - a
+        final_x = self.Plate_Locations[2] + b
+        
+        for i in range(points_per_lens):
+            if starting_x < self.z_min: 
+                #propogate in free space until we have data
+                radius = starting_radii[i] + (self.z_min - starting_x) * np.tan(starting_theta[i])
+                starting_x = self.z_min
+            else:
+                radius = starting_radii[i]
+                
+            if (radius < filter_radius * self.Apperture_Radius):
+                lens_incidence_radii += [radius]
+                lens_incidence_theta += [starting_theta[i]]
+                
+        lens_incidence_radii = np.array(lens_incidence_radii)
+        lens_incidence_theta = np.array(lens_incidence_theta)   
+        phi_values = np.random.uniform(0, 2*np.pi, len(lens_incidence_theta))
+        final_radii = np.zeros(len(lens_incidence_theta))
+        radii_and_slopes = np.zeros((2, len(lens_incidence_theta)))
+
+        for i in range(len(lens_incidence_radii)):
+                r = lens_incidence_radii[i]
+                angle = lens_incidence_theta[i]
+                if (r == 0):
+                    break
+                theta = angle
+                
+                vr = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.sin(theta)
+                vz = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.cos(theta)
+                
+                final_r, slope = self.Simulate_Electron_Path_B(r, vr, vz, starting_x, final_x, points_per_path)
+                radii_and_slopes[0][i] = final_r
+                radii_and_slopes[1][i] = slope
+            
+        fun = lambda x: np.sum(np.power(radii_and_slopes[0] + radii_and_slopes[1] * x, 2))
+
+        grad = lambda x: 2 * np.sum(radii_and_slopes[1] * (radii_and_slopes[0] + radii_and_slopes[1] * x))
+        
+        optimal_dist = scipy.optimize.minimize(fun, final_x, method = 'trust-constr', jac = 'grad')
+       
+            
+        for i in range(len(lens_incidence_radii)):
+                final_radii[i] = radii_and_slopes[0][i] + radii_and_slopes[1][i] * optimal_dist.x[0]
+        
+        
+        plt.title("scatter of electrons as they impact the substrate")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.scatter(final_radii * np.cos(phi_values), final_radii * np.sin(phi_values))
+        plt.show()
+
+        print("The number of electrons that hit the substrate is: " + str(len(final_radii)))
+        print("The optimal lens to substrate distance is " + str(optimal_dist.x[0] + self.z_max - self.Plate_Locations[2]))
+        print("The free propogation distance is " + str(optimal_dist.x[0]))
+        print("The standard deviation at the spot is " + str(np.sqrt(np.sum(np.power(final_radii, 2) / len(final_radii)))))
+
+    def perform_scatter(self, a, b, CNT_forest_radius, points_per_lens, points_per_path, angular_variance = 0.0001, filter_radius = 0.8):
+        
+        ## we will assume we have a perfect skimmer, i.e all particles that would hit the edges of te lens are removed
+        starting_radii = CNT_forest_radius * np.sqrt(1 - np.random.uniform(0, 1.0, points_per_lens))
+        starting_theta = np.random.normal(0, angular_variance, points_per_lens)
+        
+        lens_incidence_radii = []
+        lens_incidence_theta = []
+
+        starting_x = self.Plate_Locations[0] - a
+        final_x = self.Plate_Locations[2] + b
+        
+        for i in range(points_per_lens):
+            if starting_x < self.z_min: 
+                #propogate in free space until we have data
+                radius = starting_radii[i] + (self.z_min - starting_x) * np.tan(starting_theta[i])
+                starting_x = self.z_min
+            else:
+                radius = starting_radii[i]
+                
+            if (radius < filter_radius * self.Apperture_Radius):
+                lens_incidence_radii += [radius]
+                lens_incidence_theta += [starting_theta[i]]
+                
+        lens_incidence_radii = np.array(lens_incidence_radii)
+        lens_incidence_theta = np.array(lens_incidence_theta)   
+        final_radii = np.zeros(len(lens_incidence_theta))
+        radii_and_slopes = np.zeros((2, len(lens_incidence_theta)))
+
+        for i in range(len(lens_incidence_radii)):
+                r = lens_incidence_radii[i]
+                angle = lens_incidence_theta[i]
+                if (r == 0):
+                    break
+                theta = angle
+                
+                vr = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.sin(theta)
+                vz = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.cos(theta)
+                
+                final_r, slope = self.Simulate_Electron_Path_B(r, vr, vz, starting_x, final_x, points_per_path)
+                radii_and_slopes[0][i] = final_r
+                radii_and_slopes[1][i] = slope
+            
+        fun = lambda x: np.sum(np.power(radii_and_slopes[0] + radii_and_slopes[1] * x, 2))
+
+        grad = lambda x: 2 * np.sum(radii_and_slopes[1] * (radii_and_slopes[0] + radii_and_slopes[1] * x))
+        
+        optimal_dist = scipy.optimize.minimize(fun, final_x, method = 'trust-constr', jac=grad)
+       
+            
+        for i in range(len(lens_incidence_radii)):
+                final_radii[i] = radii_and_slopes[0][i] + radii_and_slopes[1][i] * optimal_dist.x[0]
+
+        spot_radius = np.sqrt(2*np.sum(np.power(final_radii, 2) / len(final_radii)))
+        mean_radius = np.sum(final_radii) / len(final_radii)
+        spot_stddev =  np.sqrt(np.sum(np.power(final_radii, 2) / len(final_radii)) - mean_radius**2)
+        skewness = np.sum(np.power((final_radii - mean_radius) / spot_stddev, 3)) / len(final_radii)
+        ## The fields are: lens to substrate distance, spot radius, magnification, skewness, yield
+        return [(optimal_dist.x[0] + self.z_max - self.Plate_Locations[2]), spot_radius, CNT_forest_radius / spot_radius, skewness, len(final_radii)/points_per_lens]
+
+
+
+    def visualize_scatter_fixed(self, a, b, CNT_forest_radius, points_per_lens, points_per_path, angular_variance = 0.0001, filter_radius = 0.8):
+        
+        ## we will assume we have a perfect skimmer, i.e all particles that would hit the edges of te lens are removed
+        starting_radii = CNT_forest_radius * np.sqrt(1 - np.random.uniform(0, 1.0, points_per_lens))
+        starting_theta = np.random.normal(0, angular_variance, points_per_lens)
+        phi_values = np.random.uniform(0, 2*np.pi, points_per_lens)
+        
+        plt.title("scatter of emitted electrons from the source")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.scatter(starting_radii * np.cos(phi_values), starting_radii * np.sin(phi_values))
+        plt.show()
+        
+        lens_incidence_radii = []
+        lens_incidence_theta = []
+
+        starting_x = self.Plate_Locations[0] - a
+        final_x = self.Plate_Locations[2] + b
+        
+        for i in range(points_per_lens):
+            if starting_x < self.z_min: 
+                #propogate in free space until we have data
+                radius = starting_radii[i] + (self.z_min - starting_x) * np.tan(starting_theta[i])
+                starting_x = self.z_min
+            else:
+                radius = starting_radii[i]
+                
+            if (radius < filter_radius * self.Apperture_Radius):
+                lens_incidence_radii += [radius]
+                lens_incidence_theta += [starting_theta[i]]
+                
+        lens_incidence_radii = np.array(lens_incidence_radii)
+        lens_incidence_theta = np.array(lens_incidence_theta)   
+        phi_values = np.random.uniform(0, 2*np.pi, len(lens_incidence_theta))
+        final_radii = np.zeros(len(lens_incidence_theta))
+        radii_and_slopes = np.zeros((2, len(lens_incidence_theta)))
+
+        for i in range(len(lens_incidence_radii)):
+                r = lens_incidence_radii[i]
+                angle = lens_incidence_theta[i]
+                if (r == 0):
+                    break
+                theta = angle
+                
+                vr = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.sin(theta)
+                vz = speed_of_light * np.sqrt(1 - (self.Electron_Mass * speed_of_light**2 / (self.Electron_Energies + self.Electron_Mass * speed_of_light**2))**2)*np.cos(theta)
+                
+                final_r, slope = self.Simulate_Electron_Path_B(r, vr, vz, starting_x, final_x, points_per_path)
+                radii_and_slopes[0][i] = final_r
+                radii_and_slopes[1][i] = slope
+            
+        #fun = lambda x: np.sum(np.power(radii_and_slopes[0] + radii_and_slopes[1] * x, 2))
+        
+        #optimal_dist = scipy.optimize.minimize(fun, final_x, method = 'Nelder-Mead')
+
+        optimal_dist = b
+       
+            
+        for i in range(len(lens_incidence_radii)):
+                final_radii[i] = radii_and_slopes[0][i] + radii_and_slopes[1][i] * optimal_dist
+        
+        
+        plt.title("scatter of electrons as they impact the substrate")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.scatter(final_radii * np.cos(phi_values), final_radii * np.sin(phi_values))
+        plt.show()
+
+        print("The number of electrons that hit the substrate is: " + str(len(final_radii)))
+        print("The optimal lens to substrate distance is " + str(optimal_dist + self.z_max - self.Plate_Locations[2]))
+        print("The free propogation distance is " + str(optimal_dist))
+        print("The standard deviation at the spot is " + str(np.sqrt(np.sum(np.power(final_radii, 2) / len(final_radii)))))

@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CNT–Einzel Lens Theory & Design</title>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']], displayMath: [['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-wrap">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1 class="brand-title">CNT–Einzel Lens Studio</h1>
+          <p class="brand-sub">Theory, assumptions, and browser implementation notes</p>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Primary">
+        <a class="tab " href="index.html">Study page</a>
+        <a class="tab active " href="theory.html">Theory &amp; design</a>
+        <a class="tab " href="pattern-workbench.html">Pattern workbench</a>
+        <a class="tab " href="hardware.html">Hardware control</a>
+        <a class="tab" href="current-monitor.html">Current monitor</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container theory-shell">
+    <section class="hero card">
+      <div class="hero-copy">
+        <h2>What the simulator is doing</h2>
+        <p>
+          This page explains the physical model behind the CNT–Einzel workflow, the numerical choices inherited
+          from the notebook/manuscript pipeline, and the deliberate simplifications used to keep the browser version
+          interpretable and responsive.
+        </p>
+      </div>
+    </section>
+
+    <section class="theory-grid">
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">1. Device model</h2>
+        </div>
+        <div class="prose">
+          <p>
+            The simulated system is an axisymmetric CNT forest macro-emitter followed by a three-electrode einzel lens.
+            The emitter occupies a finite cylindrical region of radius <span class="mono">R<sub>forest</sub></span> and height
+            <span class="mono">h<sub>forest</sub></span>. The lens stack is defined by the aperture radius
+            <span class="mono">a<sub>inner</sub></span>, the outer stack radius
+            <span class="mono">r<sub>stack,out</sub></span>, the electrode thickness
+            <span class="mono">t<sub>e</sub></span>, and the axial spacings
+            <span class="mono">d<sub>1</sub>, d<sub>2</sub>, d<sub>3</sub></span>.
+          </p>
+          <p>
+            The outer electrodes are grounded, the middle electrode is biased to
+            <span class="mono">V<sub>MID</sub></span>, and the cathode/forest conductor is held at
+            <span class="mono">-V<sub>CNT</sub></span>. An explicit annular oxide region can be included with
+            relative permittivity <span class="mono">ε<sub>r</sub></span>.
+          </p>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">2. Electrostatics</h2>
+        </div>
+        <div class="prose">
+          <p>
+            The static field solve is based on the axisymmetric variable-permittivity equation
+          </p>
+          <div class="equation-block">\[
+            \nabla \cdot \left(\varepsilon(r,z)\nabla V(r,z)\right) = 0.
+          \]</div>
+          <p>
+            In cylindrical coordinates, the radial flux term carries the usual
+            <span class="mono">1/r</span> factor. The browser code keeps the notebook’s conservative
+            finite-difference structure, using harmonic averaging of <span class="mono">ε</span> across cell faces
+            so dielectric jumps are treated through interface fluxes rather than naive nodal averaging.
+          </p>
+          <p>
+            This matters because the oxide support is not a tiny correction. It reshapes the field near the aperture
+            wall and therefore changes both extraction and focusing.
+          </p>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">3. Field reconstruction for tracing</h2>
+        </div>
+        <div class="prose">
+          <p>
+            After solving for <span class="mono">V(r,z)</span>, the browser page reconstructs the potential with a
+            spline and takes derivatives from that spline when tracing particles.
+            This is preferable to independently interpolating precomputed field arrays because it keeps the force law
+            tied to a single scalar potential.
+          </p>
+          <p>
+            The signed transverse coordinate <span class="mono">x</span> used in the plots is just a meridional
+            representation of the axisymmetric device:
+          </p>
+          <div class="equation-block">\[
+            E_x(x,z)=\operatorname{sgn}(x)E_r(|x|,z), \qquad E_z(x,z)=E_z(|x|,z).
+          \]</div>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">4. Relativistic ray equations</h2>
+        </div>
+        <div class="prose">
+          <p>
+            Even when launch energies are sub-eV, electrons are accelerated through kilovolt-to-tens-of-kilovolt
+            structures. For that reason the browser model propagates momentum rather than using a purely nonrelativistic
+            velocity update:
+          </p>
+          <div class="equation-block">\[
+          \dot{x}=\frac{p_x}{\gamma m_e}, \qquad
+          \dot{z}=\frac{p_z}{\gamma m_e}, \qquad
+          \dot{p}_x=qE_x, \qquad
+          \dot{p}_z=qE_z,
+          \]</div>
+          <div class="equation-block">\[
+          \gamma = \sqrt{1 + \frac{p_x^2+p_z^2}{m_e^2 c^2}}.
+          \]</div>
+          <p>
+            The trajectories are integrated with <span class="mono">DOP853</span> and terminate when a ray hits a
+            conductor, exits radially, exits downstream, or turns around.
+          </p>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">5. Launch model</h2>
+        </div>
+        <div class="prose">
+          <p>
+            The canopy is sampled face-by-face. Each launch face receives a Fowler–Nordheim / Murphy–Good-inspired
+            current weight based on the local macro field just above the canopy. In this page, that weight is used in
+            one of three modes:
+          </p>
+          <ul>
+            <li><strong>Uniform radius</strong> for purely geometric sensitivity studies.</li>
+            <li><strong>Emission quantiles</strong> to sample the weighted source with equal per-ray weights.</li>
+            <li><strong>Emission all faces</strong> to retain the face weighting explicitly.</li>
+          </ul>
+          <p>
+            Angular and energy spreads can be delta-like or truncated Gaussian. The launch offset is applied slightly
+            above the canopy to represent an effective post-extraction phase space rather than literal tunnelling at the
+            surface.
+          </p>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">6. Diagnostics</h2>
+        </div>
+        <div class="prose">
+          <p>
+            The main optical diagnostic is the weighted RMS beam radius
+          </p>
+          <div class="equation-block">\[
+            \sigma_x(z)=\left(\frac{\sum_i w_i x_i(z)^2}{\sum_i w_i}\right)^{1/2}.
+          \]</div>
+          <p>
+            The page also reports:
+          </p>
+          <ul>
+            <li>count and weight transmission,</li>
+            <li>in-domain focus location,</li>
+            <li>asymptotic focus estimated from exit slopes,</li>
+            <li>fitted magnification,</li>
+            <li>maximum relative total-energy drift,</li>
+            <li>a lightweight feature-resolution table.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">7. Design takeaways encoded into the page</h2>
+        </div>
+        <div class="prose">
+          <p>
+            The manuscript’s design studies motivate a few practical habits that are reflected in the interface:
+          </p>
+          <ul>
+            <li>Spot size should never be read without transmission.</li>
+            <li>Common voltage scaling is not a true similarity direction once source weighting is recomputed.</li>
+            <li>Moderate axial re-scaling can improve crossover formation more effectively than indiscriminate radial re-scaling.</li>
+            <li>The cathode-to-first-electrode spacing is a high-leverage parameter, so it deserves to be directly tunable.</li>
+          </ul>
+          <p>
+            The study page therefore surfaces transmission, focus, magnification, and energy drift together instead of
+            reducing everything to one blur number.
+          </p>
+        </div>
+      </article>
+
+      <article class="card prose-card">
+        <div class="card-header">
+          <h2 class="card-title">8. What was simplified for the browser version</h2>
+        </div>
+        <div class="prose">
+          <p>
+            The notebooks include solver cross-checks, broader sweep workflows, cached publication figures, and more
+            elaborate result bookkeeping. Those are intentionally not reproduced here. The browser build focuses on
+            the core solve-and-trace loop:
+          </p>
+          <ul>
+            <li>single direct sparse solve instead of the full direct/BiCGSTAB comparison workflow,</li>
+            <li>no mesh or sweep-study automation,</li>
+            <li>parameter validation and feature-resolution checks instead of full convergence studies,</li>
+            <li>decimated plotting output so larger bundles stay visually responsive.</li>
+          </ul>
+          <p>
+            That keeps the site faithful to the physical workflow without turning the browser into a full publication notebook.
+          </p>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

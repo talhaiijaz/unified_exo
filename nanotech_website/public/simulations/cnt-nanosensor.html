@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CNT Nanosensor Simulation — Drop Original File Here</title>
+  <style>
+    body {
+      background: #0a0c0f;
+      color: #cdd3dc;
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      padding: 40px 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    h1 { color: #3dffa0; margin-bottom: 8px; }
+    h2 { color: #3dd8ff; margin-top: 32px; font-size: 16px; }
+    .card {
+      background: #111418;
+      border: 1px solid #252a33;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    code {
+      background: #181c22;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #3dd8ff;
+      font-size: 13px;
+    }
+    .file-path {
+      color: #ffbe3d;
+      font-weight: 600;
+    }
+    .todo {
+      border-left: 3px solid #ffbe3d;
+      padding-left: 12px;
+      color: #ffbe3d;
+    }
+  </style>
+</head>
+<body>
+  <h1>CNT Nanosensor Simulation</h1>
+  <p style="color: #556070;">Theoretical Simulation Tool by Tyler Wang — Placeholder Page</p>
+
+  <div class="card">
+    <h2>How to Activate</h2>
+    <p>The original simulation file <code>simulation_demo (3).html</code> needs to replace this placeholder. It contains:</p>
+    <ul>
+      <li>CNT &amp; Nanostructure Geometry calculator</li>
+      <li>Capacitance &amp; Energy Design (with cylindrical coaxial model)</li>
+      <li>Electric Double Layer (EDL) analysis</li>
+      <li>DNA Hybridization Detection sensitivity</li>
+      <li>Circuit Impedance (SimRC v1.0 port)</li>
+      <li>Nanolaminate First-Principles Simulator (NanoLam)</li>
+      <li>FMM — Functional Mixture Modeling (NiTRO) with real yeast data</li>
+      <li>EIS Upload + Analysis (FFT-based Z extraction)</li>
+      <li>Concentration Predictor, Sensitivity Analysis, and more</li>
+    </ul>
+  </div>
+
+  <div class="card todo">
+    <h2>Action Required</h2>
+    <p>Copy the original simulation HTML file from your desktop to:</p>
+    <p class="file-path">nanotech_website/public/simulations/cnt-nanosensor.html</p>
+    <p style="margin-top: 12px;">Command (from project root):</p>
+    <code style="display: block; padding: 10px; margin-top: 8px;">
+      cp ~/Desktop/&quot;simulation_demo (3).html&quot; nanotech_website/public/simulations/cnt-nanosensor.html
+    </code>
+  </div>
+
+  <div class="card">
+    <h2>Then Access It Via</h2>
+    <p>Frontend portal: <code>http://localhost:3000/portal/cnt-simulation</code></p>
+    <p>Direct: <code>http://localhost:3000/simulations/cnt-nanosensor.html</code></p>
+  </div>
+
+  <div class="card">
+    <h2>Credits</h2>
+    <p>Simulation code by <strong style="color: #3dffa0;">Tyler Wang</strong>. Physics models include:</p>
+    <ul style="color: #556070; font-size: 12px;">
+      <li>Born effective charge → permittivity κ (from nanolaminate_lab.pdf)</li>
+      <li>Defect hopping → conductivity σ (Arrhenius model)</li>
+      <li>Maxwell-Wagner cascade for multilayer dielectrics</li>
+      <li>FMM inverse model for concentration prediction (NiTRO, funcs.py)</li>
+      <li>FFT-based impedance extraction (nitro_app.py)</li>
+    </ul>
+  </div>
+</body>
+</html>

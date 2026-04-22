@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E‑Beam Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-wrap">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">●</span>
+        <h1 class="brand-title">E‑Beam Lithography <span class="thin">Lab</span></h1>
+      </div>
+      <nav class="tabs" aria-label="Primary">
+        <a class="tab" href="index.html">Experiment</a>
+        <a class="tab" href="theory.html">Theory / Simulation</a>
+        <a class="tab" href="emission.html">Field Emission</a>
+        <a class="tab" href="arduino.html">Arduino Control</a>
+        <a class="tab" href="hardware.html">Hardware Control</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container" style="margin-top:10px;">
+    <div class="note" style="border-color:#d97706;background:#fef3c7;color:#78350f;">
+      Arduino Control and Hardware Control tabs require a Raspberry Pi backend and connected lab hardware.
+      In this website deployment, those tabs may be limited/demo until backend setup is completed.
+    </div>
+  </div>
+
+  <main class="layout">
+    <!-- Left: painter and playback -->
+    <section class="panel">
+      <h2>Painter</h2>
+      <canvas id="grid" width="500" height="500" class="canvas"></canvas>
+      <div class="toolbar">
+        <label>Brush
+          <input id="brush" type="range" min="1" max="9" step="2" value="1" />
+        </label>
+        <button id="eraser" type="button">Eraser</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+
+      <h2 style="margin-top:1rem">Grid Fill Playback</h2>
+      <canvas id="sim" width="500" height="500" class="canvas"></canvas>
+      <div class="toolbar">
+        <label>Speed
+          <input id="speed" type="range" min="1" max="10" step="1" value="6" />
+        </label>
+      </div>
+    </section>
+
+    <!-- Right: parameters + status + derived -->
+    <section class="panel">
+      <h2>Experiment Parameters</h2>
+      <form id="params" class="controls">
+        <div class="grid">
+          <label>Beam Current (μA)
+            <input id="beam_current" name="beam_current" type="number" step="any" value="0.5" />
+          </label>
+          <label>Minimum Spot Radius (nm)
+            <input id="min_spot_radius_nm" name="min_spot_radius_nm" type="number" step="any" value="500" />
+          </label>
+          <label>CNT Grid Shape — Rows
+            <input id="cnt_rows" name="cnt_rows" type="number" step="1" min="1" value="5" />
+          </label>
+          <label>CNT Grid Shape — Cols
+            <input id="cnt_cols" name="cnt_cols" type="number" step="1" min="1" value="4" />
+          </label>
+          <label>CNT Spacing X (nm)
+            <input id="cnt_spacing_x_nm" name="cnt_spacing_x_nm" type="number" step="any" value="10000" />
+          </label>
+          <label>CNT Spacing Y (nm)
+            <input id="cnt_spacing_y_nm" name="cnt_spacing_y_nm" type="number" step="any" value="10000" />
+          </label>
+          <label>Wafer Width (nm)
+            <input id="wafer_w_nm" name="wafer_w_nm" type="number" step="any" value="100000" />
+          </label>
+          <label>Wafer Height (nm)
+            <input id="wafer_h_nm" name="wafer_h_nm" type="number" step="any" value="100000" />
+          </label>
+          <label>Required Dosage (μC/cm²)
+            <input id="required_dose" name="required_dose" type="number" step="any" value="100" />
+          </label>
+          <label>Min Motor Step (nm)
+            <input id="motor_min_step_nm" name="motor_min_step_nm" type="number" step="any" value="50" />
+          </label>
+          <label>Max Motor Velocity (nm/s)
+            <input id="motor_max_velocity_nm_s" name="motor_max_velocity_nm_s" type="number" step="any" value="100000" />
+          </label>
+        </div>
+        <button type="submit" class="primary">Run Experiment</button>
+      </form>
+
+      <section id="statusWrap" style="margin: 12px 0;">
+        <label for="status" class="label">Status</label>
+        <pre id="status" class="pre"></pre>
+      </section>
+
+      <section>
+        <h3>Derived</h3>
+        <pre id="derived" class="pre"></pre>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <small>© <span id="year"></span> E‑Beam Demo</small>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E-Beam Lite — Arduino Control</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .container{max-width:1040px;margin:0 auto;padding:0 16px}
+    .site-header{border-bottom:1px solid #eee;margin-bottom:12px}
+    .tabs{display:flex;gap:8px}.tab{padding:.45rem .7rem;border-radius:8px;background:#f3f4f6;color:#111;text-decoration:none}.tab.active{background:#e5e7eb;color:#555}
+    .card{background:#fafafa;border:1px solid #eee;border-radius:12px;padding:16px;margin:16px 0}
+    .card-header{margin-bottom:8px}
+    .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:.5rem 0}
+    .btn{padding:.55rem .9rem;border:0;border-radius:8px;background:#1f6feb;color:#fff;cursor:pointer}
+    .btn.secondary{background:#374151}.btn.warn{background:#b91c1c}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .badge{font-size:.9rem;color:#444}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .tile{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;align-items:center;gap:10px}
+    .switch{position:relative;width:72px;height:40px;background:#e5e7eb;border-radius:40px;transition:.2s;cursor:pointer}
+    .switch input{display:none}
+    .knob{position:absolute;top:4px;left:4px;width:32px;height:32px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15);transition:.2s}
+    .switch.on{background:#10b981}.switch.on .knob{left:36px}
+    .led-label{font-weight:600;font-size:1.1rem;min-width:3.5ch}
+    .mini{font-size:.85rem;color:#6b7280}
+    .bar{width:100%}
+    pre.output{background:#0b1026;color:#bfe5ff;padding:.75rem;border-radius:8px;overflow:auto;min-height:110px}
+    .hint{color:#6b7280;font-size:.9rem}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;padding:0 .35rem}
+    label.chk{display:inline-flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-wrap">
+    <h1 style="margin:.6rem 0">E-Beam Lite <span class="thin">Arduino Control</span></h1>
+    <nav class="tabs" aria-label="Primary">
+      <a class="tab" href="index.html">Experiment</a>
+      <a class="tab" href="theory.html">Theory / Simulation</a>
+      <a class="tab" href="emission.html">Field Emission</a>
+      <a class="tab active" href="arduino.html">Arduino Control</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section class="card">
+    <div class="card-header">
+      <h2 style="margin:0">Connect</h2>
+      <p class="hint">Chromium browsers on <strong>HTTPS</strong> or <strong>localhost</strong>. First time requires a user click; after permission is granted, this page can auto-reconnect.</p>
+    </div>
+    <div class="actions">
+      <button id="btnConnect" class="btn">Connect</button>
+      <button id="btnDisconnect" class="btn secondary" disabled>Disconnect</button>
+      <button id="btnAllOn" class="btn" disabled>All ON</button>
+      <button id="btnAllOff" class="btn" disabled>All OFF</button>
+      <button id="btnChase" class="btn" disabled>Chase Test</button>
+      <label class="chk"><input type="checkbox" id="chkAuto" /> Auto-reconnect</label>
+      <span id="connBadge" class="badge">Not connected</span>
+    </div>
+    <div class="actions">
+      <label>Chase speed (ms)<input id="chaseDelay" type="number" min="40" step="20" value="180" style="width:110px"></label>
+      <span class="hint">Shortcuts: <span class="kbd">1–5</span> toggle D2–D6, <span class="kbd">A</span>=All On, <span class="kbd">O</span>=All Off</span>
+    </div>
+    <pre id="log" class="output">Ready. Click “Connect”.</pre>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2 style="margin:0">LEDs D2–D6 — On/Off + Brightness</h2></div>
+    <div id="tiles" class="grid"></div>
+    <p class="hint">Note: On many Uno/Nano boards, PWM is available on D3, D5, D6. D2/D4 will act as on/off if the board lacks PWM on those pins.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-header"><h2 style="margin:0">Blink Pattern Presets</h2></div>
+    <div class="actions">
+      <button id="btnRecord" class="btn" disabled>Record Frame (use sliders)</button>
+      <label>Frame duration (ms)<input id="frameMs" type="number" min="50" step="10" value="250" style="width:110px"></label>
+      <button id="btnPlay" class="btn" disabled>Play</button>
+      <button id="btnStop" class="btn secondary" disabled>Stop</button>
+      <input id="presetName" type="text" placeholder="Preset name" style="width:200px">
+      <button id="btnSave" class="btn" disabled>Save</button>
+      <select id="presetLoad" style="min-width:180px"></select>
+      <button id="btnLoad" class="btn secondary" disabled>Load</button>
+      <button id="btnClear" class="btn warn" disabled>Clear Frames</button>
+    </div>
+    <div id="framesList" class="hint">No frames yet.</div>
+  </section>
+</main>
+
+<footer class="site-footer"><div class="container"><small>© <span id="year"></span> E-Beam Lite</small></div></footer>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* ===== basics ===== */
+const PINS = [2,3,4,5,6];             // D2..D6
+const PWM_CAPABLE = {2:false,3:true,4:false,5:true,6:true}; // Uno/Nano default; harmless if true on other boards
+let port=null, reader=null, writer=null;
+let mask=0;                            // bitmask used by S<mask> legacy command
+let levels=[0,0,0,0,0];                // 0..255 brightness per channel
+let chaseRunning=false, playTimer=null;
+const logEl = document.getElementById('log');
+function log(line){ logEl.textContent += (logEl.textContent ? "\n" : "") + line; logEl.scrollTop = logEl.scrollHeight; }
+function isSupported(){ return 'serial' in navigator; }
+
+/* ===== UI build: tiles with switch + slider ===== */
+const tiles = document.getElementById('tiles');
+PINS.forEach((pin, idx)=>{
+  const tile = document.createElement('div'); tile.className='tile';
+  const header = document.createElement('div'); header.className='row';
+  const lbl = document.createElement('div'); lbl.className='led-label'; lbl.textContent = `D${pin}`;
+  const sw = document.createElement('div'); sw.className='switch'; sw.id=`sw-${pin}`; sw.appendChild(document.createElement('div')).className='knob';
+  header.append(lbl, sw);
+
+  const row2 = document.createElement('div'); row2.className='row';
+  const rng = document.createElement('input'); rng.type='range'; rng.min=0; rng.max=255; rng.step=1; rng.value=0; rng.className='bar'; rng.id=`rng-${pin}`;
+  const val = document.createElement('span'); val.className='mini'; val.id=`val-${pin}`; val.textContent='0';
+  row2.append(rng, val);
+
+  const hint = document.createElement('div'); hint.className='mini'; hint.textContent = PWM_CAPABLE[pin] ? 'PWM' : 'On/Off';
+
+  tile.append(header, row2, hint);
+  tiles.appendChild(tile);
+
+  sw.addEventListener('click', ()=>{
+    const bit=1<<idx; const on = !(mask & bit);
+    mask = on ? (mask|bit) : (mask & ~bit);
+    levels[idx] = on ? 255 : 0;
+    updateSwitches(); updateSliders();
+    sendBrightness();
+  });
+  rng.addEventListener('input', debounce(()=>{
+    const v = parseInt(rng.value,10)|0;
+    levels[idx]=v;
+    const bit=1<<idx;
+    mask = v>0 ? (mask|bit) : (mask & ~bit);
+    updateSwitches();
+    document.getElementById(`val-${pin}`).textContent=String(v);
+    sendBrightness();
+  }, 40));
+});
+function updateSwitches(){
+  PINS.forEach((pin, idx)=>{
+    const bit=1<<idx; const on=(mask & bit)!==0;
+    const sw=document.getElementById(`sw-${pin}`);
+    if(sw) sw.classList.toggle('on', on);
+  });
+}
+function updateSliders(){
+  PINS.forEach((pin, idx)=>{
+    const rng=document.getElementById(`rng-${pin}`);
+    const val=document.getElementById(`val-${pin}`);
+    if(rng) rng.value=String(levels[idx]);
+    if(val) val.textContent=String(levels[idx]);
+  });
+}
+function csv(arr){ return arr.join(','); }
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+/* ===== Web Serial ===== */
+async function connect(auto=false){
+  if(!isSupported()){ log('Web Serial not supported (use Chrome/Edge/Opera with HTTPS/localhost).'); return; }
+  try{
+    if(auto){
+      const ports = await navigator.serial.getPorts();
+      if(!ports.length){ log('No pre-authorized port found. Click Connect.'); return; }
+      port = ports[0];
+    } else {
+      // Optionally filter by known VID/PID if you want:
+      // port = await navigator.serial.requestPort({ filters:[{usbVendorId:0x1A86},{usbVendorId:0x2341}] });
+      port = await navigator.serial.requestPort();
+    }
+    await port.open({ baudRate: 115200 });
+    log('Serial: port opened @115200');
+
+    const decoder = new TextDecoderStream();
+    port.readable.pipeTo(decoder.writable);
+    reader = decoder.readable.getReader();
+    (async ()=>{ try{ for(;;){ const {value,done}=await reader.read(); if(done) break; if(value) log('« '+value.trim()); } }catch{} })();
+
+    const enc = new TextEncoder();
+    writer = { write: async (s)=>{ if(port?.writable){ const w=port.writable.getWriter(); await w.write(enc.encode(s)); w.releaseLock(); } } };
+
+    document.getElementById('btnConnect').disabled=true;
+    document.getElementById('btnDisconnect').disabled=false;
+    ['btnAllOn','btnAllOff','btnChase','btnRecord','btnPlay','btnStop','btnSave','btnLoad','btnClear'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=false; });
+    document.getElementById('connBadge').textContent='Connected';
+
+    await sendBrightness(); // push current levels
+    log('Connected. Toggle switches or move sliders.');
+  }catch(err){
+    log('Connect error: '+err.message);
+    await disconnect();
+  }
+}
+async function disconnect(){
+  try{
+    chaseRunning=false; stopPlayback();
+    writer=null;
+    if(reader){ try{ await reader.cancel(); }catch{} reader=null; }
+    if(port){ try{ await port.close(); }catch{} port=null; }
+    log('Disconnected.');
+  } finally {
+    document.getElementById('btnConnect').disabled=false;
+    document.getElementById('btnDisconnect').disabled=true;
+    ['btnAllOn','btnAllOff','btnChase','btnRecord','btnPlay','btnStop','btnSave','btnLoad','btnClear'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=true; });
+    document.getElementById('connBadge').textContent='Not connected';
+  }
+}
+async function sendMask(){
+  if(!writer) return;
+  await writer.write(`S${mask}\n`);
+  log(`» S${mask}`);
+}
+async function sendBrightness(){
+  if(!writer) return;
+  await writer.write(`B${csv(levels)}\n`);
+  log(`» B${csv(levels)}`);
+}
+
+/* ===== Buttons & controls ===== */
+document.getElementById('btnConnect').addEventListener('click', ()=>connect(false));
+document.getElementById('btnDisconnect').addEventListener('click', disconnect);
+document.getElementById('btnAllOn').addEventListener('click', async ()=>{ mask=0b11111; levels=[255,255,255,255,255]; updateSwitches(); updateSliders(); await sendBrightness(); });
+document.getElementById('btnAllOff').addEventListener('click', async ()=>{ mask=0; levels=[0,0,0,0,0]; updateSwitches(); updateSliders(); await sendBrightness(); });
+
+document.getElementById('btnChase').addEventListener('click', async ()=>{
+  if(!writer) return;
+  chaseRunning = !chaseRunning;
+  const btn = document.getElementById('btnChase');
+  btn.textContent = chaseRunning ? 'Stop Chase' : 'Chase Test';
+  let i=0;
+  while(chaseRunning && writer){
+    const delay = Math.max(40, parseInt(document.getElementById('chaseDelay').value,10)||180);
+    levels = [0,0,0,0,0];
+    const idx=i % PINS.length; levels[idx]=255;
+    mask = 1<<idx; updateSwitches(); updateSliders();
+    await sendBrightness();
+    await new Promise(r=>setTimeout(r, delay));
+    i++;
+  }
+});
+
+document.getElementById('chkAuto').addEventListener('change', (e)=>{
+  localStorage.setItem('autoConnect', e.target.checked ? '1':'0');
+});
+
+/* ===== Keyboard shortcuts ===== */
+window.addEventListener('keydown', async (e)=>{
+  if(!writer) return;
+  const k = e.key.toLowerCase();
+  if(k>='1' && k<='5'){
+    const idx = parseInt(k,10)-1;
+    const bit = 1<<idx;
+    const on = !(mask & bit);
+    mask = on ? (mask|bit) : (mask & ~bit);
+    levels[idx] = on ? 255 : 0;
+    updateSwitches(); updateSliders(); await sendBrightness();
+  } else if(k==='a'){ mask=0b11111; levels=[255,255,255,255,255]; updateSwitches(); updateSliders(); await sendBrightness(); }
+  else if(k==='o'){ mask=0; levels=[0,0,0,0,0]; updateSwitches(); updateSliders(); await sendBrightness(); }
+});
+
+/* ===== Pattern editor (frames stored/played in the browser) ===== */
+let frames=[]; // each: {ms:number, levels:[5]}
+function renderFrames(){
+  const box=document.getElementById('framesList');
+  if(!frames.length){ box.textContent='No frames yet.'; return; }
+  box.innerHTML = frames.map((f,i)=>`<div>Frame ${i+1}: ${f.ms} ms — [${f.levels.join(', ')}]</div>`).join('');
+}
+function stopPlayback(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } document.getElementById('btnPlay').textContent='Play'; }
+async function playFrames(idx=0){
+  if(!writer || !frames.length) return;
+  document.getElementById('btnPlay').textContent='Playing…';
+  const f = frames[idx];
+  levels = f.levels.slice(); mask=0; levels.forEach((v,i)=>{ if(v>0) mask|=(1<<i); });
+  updateSwitches(); updateSliders(); await sendBrightness();
+  playTimer = setTimeout(()=>playFrames((idx+1)%frames.length), Math.max(20, f.ms));
+}
+document.getElementById('btnRecord').addEventListener('click', ()=>{
+  const ms = Math.max(20, parseInt(document.getElementById('frameMs').value,10)||250);
+  frames.push({ms, levels: levels.slice()});
+  renderFrames();
+});
+document.getElementById('btnPlay').addEventListener('click', ()=>{ if(playTimer){ stopPlayback(); } else { playFrames(0); } });
+document.getElementById('btnStop').addEventListener('click', stopPlayback);
+document.getElementById('btnClear').addEventListener('click', ()=>{ stopPlayback(); frames=[]; renderFrames(); });
+
+function refreshPresetList(){
+  const sel=document.getElementById('presetLoad'); sel.innerHTML='';
+  const store = JSON.parse(localStorage.getItem('arduino_presets')||'{}');
+  const names = Object.keys(store);
+  if(!names.length){ sel.innerHTML='<option value="">(no presets)</option>'; return; }
+  names.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+}
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const name=(document.getElementById('presetName').value||'').trim();
+  if(!name || !frames.length) return;
+  const store = JSON.parse(localStorage.getItem('arduino_presets')||'{}');
+  store[name]=frames;
+  localStorage.setItem('arduino_presets', JSON.stringify(store));
+  refreshPresetList();
+});
+document.getElementById('btnLoad').addEventListener('click', ()=>{
+  const sel=document.getElementById('presetLoad'); const name=sel.value;
+  if(!name) return;
+  const store = JSON.parse(localStorage.getItem('arduino_presets')||'{}');
+  frames = (store[name]||[]).slice(); renderFrames();
+});
+
+/* ===== Port events & auto connect ===== */
+if('serial' in navigator){
+  navigator.serial.addEventListener('disconnect', (ev)=>{ if(port && ev.target===port){ disconnect(); } });
+  navigator.serial.addEventListener('connect', async ()=>{ if(document.getElementById('chkAuto').checked && !port){ await connect(true); } });
+}
+document.addEventListener('DOMContentLoaded', async ()=>{
+  document.getElementById('chkAuto').checked = localStorage.getItem('autoConnect')==='1';
+  refreshPresetList(); renderFrames();
+  if(document.getElementById('chkAuto').checked){ await connect(true); }
+});
+</script>
+</body>
+</html>

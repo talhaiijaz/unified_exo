@@ -1,0 +1,65 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+/people
+/Potentiostat-main
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+#onrender code
+onrender/
+excel/
+nano-webapp-new/
+# macOS / editor cruft
+.DS_Store
+.idea/
+.vscode/
+
+# Python / data science artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Vite / Storybook build artifacts (nano-webapp-new)
+nano-webapp-new/.vite/
+nano-webapp-new/website/.vite/
+nano-webapp-new/website/storybook-static/
+
+# Logs and local build outputs
+*.log
+build.log
+
+# KiCad syringe pump fabrication files & backups
+Syringe Pump Updated/**/Syringe_updated-backups/
+Syringe Pump Updated/**/pump ouptut/
+Syringe Pump Updated/**/fp-info-cache
+*.kicad_prl
+*.gbr
+*.drl
+
+# Local/unrelated external projects (not tracked in this repo)
+EEG-Synthesis-Framework-main/
+Syringe Pump Updated/
+lmp91000-main/

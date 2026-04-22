@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EEG Lab — UC Berkeley Nanotechnology Lab</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ══════════════════════════════════════════════════ SIDEBAR -->
+  <aside id="sidebar">
+
+    <div class="sidebar-header">
+      <h1>⚡ EEG Lab</h1>
+      <div class="subtitle">UC Berkeley · Nanotechnology Lab</div>
+    </div>
+
+    <!-- Status -->
+    <div class="section">
+      <div class="section-label">Device Status</div>
+
+      <div class="status-row">
+        <div class="dot red" id="dot-board"></div>
+        <span class="status-text" id="board-status">Not connected</span>
+      </div>
+
+      <div class="status-row">
+        <div class="dot yellow" id="dot-session"></div>
+        <span class="status-text" id="session-info">No session</span>
+      </div>
+    </div>
+
+    <!-- Session Control -->
+    <div class="section">
+      <div class="section-label">Session</div>
+
+      <div id="controller-banner">You are the controller</div>
+
+      <div class="btn-row" style="margin-top:6px">
+        <button id="btn-start" class="primary">Start</button>
+        <button id="btn-stop" class="danger" disabled>Stop</button>
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-claim">Claim Control</button>
+        <button id="btn-release" disabled>Release</button>
+      </div>
+
+      <div style="margin-top:6px; font-size:10px; color:var(--text-dim); font-family:var(--font-mono)">
+        ID: <span id="client-id-display" style="color:var(--text)">—</span>
+      </div>
+    </div>
+
+    <!-- Display -->
+    <div class="section">
+      <div class="section-label">Display</div>
+
+      <div class="control-row">
+        <label>Gain</label>
+        <input type="range" id="gain" min="0.1" max="10" step="0.1" value="2.0">
+        <span class="status-value" id="gain-val">2.0</span>
+      </div>
+
+      <div class="control-row">
+        <label>Window</label>
+        <select id="window-sec">
+          <option value="2">2 s</option>
+          <option value="5" selected>5 s</option>
+          <option value="10">10 s</option>
+          <option value="20">20 s</option>
+          <option value="30">30 s</option>
+        </select>
+      </div>
+
+      <div class="control-row">
+        <label>Smooth</label>
+        <input type="range" id="smooth" min="0" max="100" step="4" value="0">
+        <span class="status-value" id="smooth-val">0</span> ms
+      </div>
+
+      <div class="control-row">
+        <label>Focus Ch</label>
+        <select id="focus-channel">
+          <option value="1">Ch 1</option>
+          <option value="2">Ch 2</option>
+          <option value="3">Ch 3</option>
+          <option value="4">Ch 4</option>
+          <option value="5">Ch 5</option>
+          <option value="6">Ch 6</option>
+          <option value="7">Ch 7</option>
+          <option value="8">Ch 8</option>
+          <option value="9">Ch 9</option>
+          <option value="10">Ch 10</option>
+        </select>
+      </div>
+
+      <div class="control-row">
+        <label>Pause/Resume</label>
+        <button id="btn-pause" class="primary">Pause</button>
+      </div>
+
+      <div class="control-row">
+        <label>Display Lag</label>
+        <input type="range" id="display-lag" min="0" max="5" step="0.1" value="0">
+        <span class="status-value" id="display-lag-val">0.0</span>s
+      </div>
+
+      <div class="control-row">
+        <label>Auto-scale</label>
+        <input type="checkbox" id="auto-scale">
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="section">
+      <div class="section-label">Filters</div>
+
+      <div class="toggle-row">
+        <label for="notch">Notch 60 Hz</label>
+        <input type="checkbox" id="notch">
+      </div>
+
+      <div class="toggle-row">
+        <label for="bandpass">Bandpass 0.5–40 Hz</label>
+        <input type="checkbox" id="bandpass">
+      </div>
+
+      <div class="toggle-row">
+        <label for="show-bands">Show FFT Bands</label>
+        <input type="checkbox" id="show-bands">
+      </div>
+    </div>
+
+    <!-- Captures -->
+    <div class="section">
+      <div class="section-label">Save Capture</div>
+
+      <div class="btn-row">
+        <button id="btn-cap5">5 s</button>
+        <button id="btn-cap30">30 s</button>
+        <button id="btn-cap60">60 s</button>
+      </div>
+
+      <div style="margin-top:8px" class="btn-row">
+        <button id="btn-screenshot">Save Screenshot</button>
+      </div>
+
+      <div id="capture-list"></div>
+    </div>
+
+    <!-- Demo mode -->
+    <div class="section">
+      <div class="section-label">Demo Mode</div>
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:6px">
+        Synthetic EEG — no board required
+      </div>
+      <div class="btn-row">
+        <button id="btn-demo-start">▶ Demo</button>
+        <button id="btn-demo-stop" disabled>■ Stop</button>
+      </div>
+      <div id="demo-status" style="font-size:10px;color:var(--text-dim);margin-top:4px"></div>
+    </div>
+
+    <!-- Instrument control -->
+    <div class="section">
+      <div class="section-label">Instrument Control</div>
+
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:6px">Send raw commands to the board</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="cmd-input" placeholder="raw command" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:3px;font-family:var(--font-mono)">
+        <button id="cmd-send">Send</button>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="pwm-val" placeholder="PWM (0-255)" style="width:110px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:3px;font-family:var(--font-mono)">
+        <button id="pwm-send">Set PWM</button>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="rate-val" placeholder="Sample rate (Hz)" style="width:140px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:3px;font-family:var(--font-mono)">
+        <button id="rate-send">Set Rate</button>
+      </div>
+
+      <div style="font-size:11px;color:var(--text-dim);">Last response:</div>
+      <div id="cmd-response" style="font-family:var(--font-mono);font-size:11px;color:var(--text);padding:6px;border:1px solid var(--border);border-radius:4px;margin-top:6px;min-height:36px"></div>
+    </div>
+
+    <!-- Spacer -->
+    <div style="flex:1"></div>
+
+    <!-- Footer -->
+    <div class="section" style="border-top:1px solid var(--border); border-bottom:none">
+      <div style="font-size:10px; color:var(--text-dim); text-align:center">
+        EEG Lab v1.0 · Raspberry Pi Server
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════ MAIN PANEL -->
+  <main id="main">
+
+    <!-- Counter bar -->
+    <div id="counters">
+      Samples: <span id="sample-count">0</span>
+      &nbsp;·&nbsp;
+      Update rate: <span id="fps">—</span> fps
+      &nbsp;·&nbsp;
+      <span style="color:var(--text-dim)">Artifacts shown in</span>
+      <span style="color:var(--red)">red</span>
+    </div>
+
+    <!-- EEG plot -->
+    <div id="plot-eeg"></div>
+
+    <!-- FFT plot -->
+    <div id="plot-fft"></div>
+
+  </main>
+
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+<script>
+  // Display short client ID in sidebar
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('client-id-display').textContent = CLIENT_ID.slice(0, 8);
+  });
+</script>
+
+</body>
+</html>

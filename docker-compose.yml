@@ -1,0 +1,88 @@
+# Exo-Platform Docker Compose
+# Spins up the full stack (server + frontend + simulated Pi agent) in one command.
+#
+# Usage:
+#   docker-compose up --build         # Build and start
+#   docker-compose up -d              # Start in background
+#   docker-compose logs -f server     # Follow logs for a service
+#   docker-compose down               # Stop everything
+
+version: "3.9"
+
+services:
+  # =================== Backend Server ===================
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: exo-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"    # HTTP API
+      - "1863:1863"    # Pi control channel
+      - "8612:8612"    # Pi video channel
+      - "8613:8613"    # Pi telemetry channel
+    environment:
+      - EXO_HOST=0.0.0.0
+      - EXO_HTTP_PORT=5000
+      - EXO_CONTROL_PORT=1863
+      - EXO_VIDEO_PORT=8612
+      - EXO_TELEMETRY_PORT=8613
+      - EXO_DATABASE_PATH=/data/exo_data.db
+      - EXO_RECORDINGS_DIR=/data/recordings
+      - EXO_CORS_ORIGINS=http://localhost:3000
+      # Override in production
+      - EXO_JWT_SECRET=${EXO_JWT_SECRET:-exo-platform-dev-secret-change-in-production}
+    volumes:
+      - exo-data:/data
+    networks:
+      - exo-net
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # =================== Frontend ===================
+  frontend:
+    build:
+      context: ./nanotech_website
+      dockerfile: Dockerfile
+    container_name: exo-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - EXO_BACKEND_URL=http://server:5000
+    depends_on:
+      - server
+    networks:
+      - exo-net
+
+  # =================== Simulated Pi Agent ===================
+  # Useful for local testing without real hardware.
+  # Comment out if you're connecting real Pis from outside Docker.
+  pi_sim:
+    build:
+      context: ./pi_agent
+      dockerfile: Dockerfile
+    container_name: exo-pi-sim
+    restart: unless-stopped
+    environment:
+      - EXO_HOST=server
+      - EXO_CLIENT_ID=pi-sim-docker
+      - EXO_SIM_MODE=1
+    depends_on:
+      - server
+    networks:
+      - exo-net
+
+# =================== Networks & Volumes ===================
+networks:
+  exo-net:
+    driver: bridge
+
+volumes:
+  exo-data:
+    driver: local
