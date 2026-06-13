@@ -7,7 +7,8 @@ export async function POST(req: Request) {
   const joint = String(body.joint || '') as any
   const direction = parseInt(String(body.direction ?? 0), 10) as -1|0|1
   const speed = Number(body.speed ?? 0)
+  const targetAngle = typeof body.targetAngle === 'number' ? body.targetAngle : undefined
   if (![ -1, 0, 1 ].includes(direction)) return NextResponse.json({ error: 'direction must be -1, 0, or +1' }, { status: 400 })
-  command(joint, direction, speed)
+  command(joint, direction, speed, targetAngle)
   return NextResponse.json({ ok: true })
 }

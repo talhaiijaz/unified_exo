@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 import config
 import db
 from comm import ConnectionManager
-from routes import clients, commands, video, telemetry, auth
+from routes import clients, commands, video, telemetry, auth, polling_agents
 
 # --- ConnectionManager singleton ---
 
@@ -98,6 +98,7 @@ app.add_middleware(
 # Routes
 app.include_router(clients.router)
 app.include_router(commands.router)
+app.include_router(polling_agents.router)
 app.include_router(video.router)
 app.include_router(telemetry.router)
 app.include_router(auth.router)

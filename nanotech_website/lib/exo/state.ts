@@ -98,8 +98,16 @@ export function getState() {
   return JSON.parse(JSON.stringify(state)) as State
 }
 
-export function command(joint: Joint, direction: -1 | 0 | 1, speed: number) {
+export function command(joint: Joint, direction: -1 | 0 | 1, speed: number, targetAngle?: number) {
   if (!(JOINTS as string[]).includes(joint)) return
+
+  if (typeof targetAngle === 'number') {
+    const lim = LIMITS_DEG[joint]
+    state.angles[joint] = clamp(targetAngle, lim.min, lim.max)
+    state.velocities[joint] = 0
+    return
+  }
+
   const s = clamp(speed, 0, 1)
   const max = SPEEDS_DEG_PER_S[joint]
   if (!state.enabled || state.e_stop) {

@@ -7,9 +7,11 @@ from .gyroscope import GyroscopeDriver
 from .ultrasonic import UltrasonicDriver
 from .vibration import VibrationDriver
 from .tens import TENSDriver
+from .exoskeleton import ExoskeletonDriver
 
 DEVICE_REGISTRY: dict[str, type[DeviceDriver]] = {
     "motor": MotorDriver,
+    "exoskeleton": ExoskeletonDriver,
     "oled": OLEDDriver,
     "camera": CameraDriver,
     "temperature": TemperatureDriver,
@@ -23,5 +25,5 @@ __all__ = [
     "DeviceDriver", "DEVICE_REGISTRY",
     "MotorDriver", "OLEDDriver", "CameraDriver",
     "TemperatureDriver", "GyroscopeDriver", "UltrasonicDriver",
-    "VibrationDriver", "TENSDriver",
+    "VibrationDriver", "TENSDriver", "ExoskeletonDriver",
 ]

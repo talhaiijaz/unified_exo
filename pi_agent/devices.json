@@ -1,5 +1,6 @@
 {
   "devices": [
+    {"type": "exoskeleton", "id": "arm_angles", "transport": "http", "url": "http://127.0.0.1:5000/angles", "timeout_s": 1.5},
     {"type": "motor", "id": "arm_motor", "port": "/dev/ttyUSB0", "baud": 9600},
     {"type": "oled", "id": "glasses", "port": "/dev/ttyACM0", "baud": 9600},
     {"type": "camera", "id": "main_cam", "resolution": [640, 480], "camera_index": 0},

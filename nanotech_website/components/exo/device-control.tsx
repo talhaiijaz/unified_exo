@@ -10,6 +10,12 @@ interface DeviceControlProps {
 }
 
 const DEVICE_COMMANDS: Record<string, { label: string; command: string; params?: string; color?: string }[]> = {
+  exoskeleton: [
+    { label: "Neutral", command: "angles", params: "0,0,0,0,0" },
+    { label: "Arm Up", command: "angles", params: "40,0,20,0,0" },
+    { label: "Home", command: "home" },
+    { label: "Stop", command: "stop", color: "red" },
+  ],
   motor: [
     { label: "Step +100", command: "step", params: "100" },
     { label: "Step -100", command: "step", params: "-100" },
@@ -55,6 +61,7 @@ const DEVICE_COMMANDS: Record<string, { label: string; command: string; params?:
 }
 
 const DEVICE_ICONS: Record<string, string> = {
+  exoskeleton: "X",
   motor: "M",
   oled: "O",
   temperature: "T",

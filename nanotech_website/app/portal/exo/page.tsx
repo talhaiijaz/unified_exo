@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Navigation } from "@/components/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { listClients, type PiClient } from "@/lib/exo/api"
+import { listClients, sendDeviceCommand, type PiClient } from "@/lib/exo/api"
 import { ClientCard } from "@/components/exo/client-card"
 
 type Config = { joints: string[]; limits: Record<string,{min:number,max:number}>; speeds: Record<string, number> }
@@ -40,6 +40,16 @@ const HOME_DEG: Record<string, number> = {
   wrist_yaw: 0,
 }
 
+const EXO_ANGLE_JOINTS = [
+  "shoulder_pitch",
+  "shoulder_roll",
+  "elbow_flexion",
+  "wrist_pitch",
+  "wrist_yaw",
+] as const
+
+const REMOTE_EXO_DEVICE_TYPES = ["exoskeleton", "exo"]
+
 function mkZeroMap(joints: string[]) {
   return Object.fromEntries(joints.map((j) => [j, 0])) as Record<string, number>
 }
@@ -67,6 +77,14 @@ function endpoint(x: number, y: number, angleDeg: number, length: number): Point
   return { x: x + dx, y: y + dy }
 }
 
+function anglesToCsv(angles: Record<string, number>) {
+  return EXO_ANGLE_JOINTS.map((joint) => Math.round(angles[joint] ?? 0)).join(",")
+}
+
+function getRemoteExoDeviceType(client?: PiClient | null) {
+  return client?.device_manifest?.find((device) => REMOTE_EXO_DEVICE_TYPES.includes(device.type))?.type || ""
+}
+
 async function api(path: string, opts?: RequestInit): Promise<any> {
   if (!EXO_API_ENABLED) return {}
   const res = await fetch(path, { ...(opts||{}), headers: { "Content-Type": "application/json" } })
@@ -84,6 +102,9 @@ export default function ExoPage() {
   })
   const [connectedPis, setConnectedPis] = useState<PiClient[]>([])
   const [serverOnline, setServerOnline] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState("")
+  const [remoteStatus, setRemoteStatus] = useState("Local controls only")
+  const lastRemoteAnglesRef = useRef("")
 
   // Poll connected Pi agents
   useEffect(() => {
@@ -102,6 +123,21 @@ export default function ExoPage() {
   }, [])
 
   useEffect(() => {
+    if (connectedPis.length === 0) {
+      if (selectedClientId) setSelectedClientId("")
+      return
+    }
+
+    if (selectedClientId && connectedPis.some((pi) => pi.client_id === selectedClientId)) return
+    const preferred = connectedPis.find((pi) => getRemoteExoDeviceType(pi)) || connectedPis[0]
+    setSelectedClientId(preferred.client_id)
+  }, [connectedPis, selectedClientId])
+
+  useEffect(() => {
+    lastRemoteAnglesRef.current = ""
+  }, [selectedClientId])
+
+  useEffect(() => {
     if (!EXO_API_ENABLED) return
     api("/api/exo/config").then((cfg) => {
       if (!cfg?.joints) return
@@ -115,31 +151,64 @@ export default function ExoPage() {
     })
   }, [])
 
+  const selectedClient = connectedPis.find((pi) => pi.client_id === selectedClientId) || null
+  const selectedDeviceType = getRemoteExoDeviceType(selectedClient)
+  const remoteReady = Boolean(serverOnline && selectedClientId && selectedDeviceType)
+
+  const sendRemoteDeviceCommand = async (command: string, params: Record<string, string | number | boolean> = {}) => {
+    if (!selectedClientId) {
+      setRemoteStatus("No remote laptop agent selected")
+      return
+    }
+    if (!selectedDeviceType) {
+      setRemoteStatus("Selected agent does not expose an exoskeleton device")
+      return
+    }
+
+    try {
+      setRemoteStatus(`Sending ${command}...`)
+      const result = await sendDeviceCommand(selectedClientId, selectedDeviceType, command, params)
+      setRemoteStatus(`${result.status}: ${result.command}`)
+    } catch (err: any) {
+      setRemoteStatus(`Remote error: ${err.message}`)
+    }
+  }
+
+  const sendAnglesToRemote = (angles: Record<string, number>) => {
+    if (!remoteReady) return
+    const data = anglesToCsv(angles)
+    if (data === lastRemoteAnglesRef.current) return
+    lastRemoteAnglesRef.current = data
+    void sendRemoteDeviceCommand("angles", { data })
+  }
+
   const commandLocal = (joint: string, direction: -1 | 0 | 1, speed: number) => {
-    setState((prev) => {
-      if (!prev.enabled || prev.e_stop) return prev
-      const max = config.speeds[joint] ?? 0
-      const lim = config.limits[joint]
-      const step = direction * clamp(speed, 0, 1) * max * 0.2
-      return {
-        ...prev,
-        angles: {
-          ...prev.angles,
-          [joint]: clamp((prev.angles[joint] ?? 0) + step, lim.min, lim.max),
-        },
-        velocities: {
-          ...prev.velocities,
-          [joint]: direction * clamp(speed, 0, 1) * max,
-        },
-      }
-    })
+    if (!state.enabled || state.e_stop) return
+    const max = config.speeds[joint] ?? 0
+    const lim = config.limits[joint]
+    if (!lim) return
+    const step = direction * clamp(speed, 0, 1) * max * 0.2
+    const next: State = {
+      ...state,
+      angles: {
+        ...state.angles,
+        [joint]: clamp((state.angles[joint] ?? 0) + step, lim.min, lim.max),
+      },
+      velocities: {
+        ...state.velocities,
+        [joint]: direction * clamp(speed, 0, 1) * max,
+      },
+    }
+    setState(next)
+    sendAnglesToRemote(next.angles)
   }
 
   const stopLocal = (joint?: string | "all") => {
-    setState((prev) => {
-      if (!joint || joint === "all") return { ...prev, velocities: mkZeroMap(config.joints) }
-      return { ...prev, velocities: { ...prev.velocities, [joint]: 0 } }
-    })
+    const next: State = !joint || joint === "all"
+      ? { ...state, velocities: mkZeroMap(config.joints) }
+      : { ...state, velocities: { ...state.velocities, [joint]: 0 } }
+    setState(next)
+    void sendRemoteDeviceCommand("stop", { joint: joint || "all" })
   }
 
   const macroMap: Record<string, [string, 1 | -1]> = {
@@ -162,15 +231,40 @@ export default function ExoPage() {
   }
 
   const setEnabled = (enabled: boolean) => {
-    setState((prev) => ({ ...prev, enabled, velocities: enabled ? prev.velocities : mkZeroMap(config.joints) }))
+    const next: State = { ...state, enabled, velocities: enabled ? state.velocities : mkZeroMap(config.joints) }
+    setState(next)
+    void sendRemoteDeviceCommand("enable", { enabled: enabled ? 1 : 0 })
   }
 
   const toggleEstop = (clear: boolean) => {
-    setState((prev) => ({ ...prev, e_stop: !clear, velocities: mkZeroMap(config.joints) }))
+    const next: State = { ...state, e_stop: !clear, velocities: mkZeroMap(config.joints) }
+    setState(next)
+    void sendRemoteDeviceCommand(clear ? "estop_clear" : "estop")
   }
 
   const homeAllLocal = () => {
-    setState((prev) => ({ ...prev, angles: { ...HOME_DEG }, velocities: mkZeroMap(config.joints) }))
+    const next: State = { ...state, angles: { ...HOME_DEG }, velocities: mkZeroMap(config.joints) }
+    setState(next)
+    lastRemoteAnglesRef.current = ""
+    void sendRemoteDeviceCommand("home")
+  }
+
+  const setJointTargetLocal = (joint: string, targetAngle: number) => {
+    const lim = config.limits[joint]
+    if (!lim || state.e_stop || !state.enabled) return
+    const next: State = {
+      ...state,
+      angles: {
+        ...state.angles,
+        [joint]: clamp(targetAngle, lim.min, lim.max),
+      },
+      velocities: {
+        ...state.velocities,
+        [joint]: 0,
+      },
+    }
+    setState(next)
+    sendAnglesToRemote(next.angles)
   }
 
   return (
@@ -246,6 +340,45 @@ export default function ExoPage() {
           )}
         </Card>
 
+        <Card className="p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Remote Hardware Target</h2>
+              <p className="text-sm text-muted-foreground">
+                {remoteReady
+                  ? `Sending ${anglesToCsv(state.angles)} to ${selectedClientId}`
+                  : selectedClientId
+                    ? "Selected agent is connected but has no exoskeleton device"
+                    : "Waiting for a connected hardware agent"}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <select
+                value={selectedClientId}
+                onChange={(event) => setSelectedClientId(event.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">No target</option>
+                {connectedPis.map((pi) => (
+                  <option key={pi.client_id} value={pi.client_id}>
+                    {pi.client_id}{getRemoteExoDeviceType(pi) ? "" : " (no exoskeleton)"}
+                  </option>
+                ))}
+              </select>
+              <span className={`text-xs px-2 py-1 rounded-full ${
+                remoteReady
+                  ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                  : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+              }`}>
+                {remoteReady ? "Remote armed" : "Local only"}
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            {remoteStatus}
+          </div>
+        </Card>
+
         <Tabs defaultValue="controls" className="w-full">
           <TabsList className="grid w-full grid-cols-2 max-w-xl">
             <TabsTrigger value="controls">Controls</TabsTrigger>
@@ -281,7 +414,15 @@ export default function ExoPage() {
 
             <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {config.joints.map(j => (
-                <JointCard key={j} joint={j} config={config} state={state} commandLocal={commandLocal} stopLocal={stopLocal} />
+                <JointCard
+                  key={j}
+                  joint={j}
+                  config={config}
+                  state={state}
+                  commandLocal={commandLocal}
+                  stopLocal={stopLocal}
+                  setJointTargetLocal={setJointTargetLocal}
+                />
               ))}
             </section>
           </TabsContent>
@@ -399,53 +540,88 @@ function JointCard({
   state,
   commandLocal,
   stopLocal,
+  setJointTargetLocal,
 }: {
   joint: string
   config: Config
   state: State
   commandLocal: (joint: string, direction: -1 | 0 | 1, speed: number) => void
   stopLocal: (joint?: string | "all") => void
+  setJointTargetLocal: (joint: string, targetAngle: number) => void
 }) {
   const limits = config.limits[joint]
   const maxSpeed = config.speeds[joint]
   const angle = state.angles[joint] ?? 0
   const pct = Math.max(0, Math.min(1, (angle - limits.min) / (limits.max - limits.min)))
-  const holdRef = useRef<number | null>(null)
-  const setDir = (dir: -1|0|1) => {
-    commandLocal(joint, dir, 0.5)
-    void api("/api/exo/command", { method: "POST", body: JSON.stringify({ joint, direction: dir, speed: 0.5 }) })
-  }
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [draftValue, setDraftValue] = useState(Math.round(angle).toString())
+
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDraftValue(Math.round(angle).toString())
+    }
+  }, [angle])
+
   const stop = () => {
     stopLocal(joint)
     void api("/api/exo/stop", { method: "POST", body: JSON.stringify({ joint }) })
   }
 
-  const startHold = (dir: -1|1) => {
-    setDir(dir)
-    if (holdRef.current) return
-    holdRef.current = window.setInterval(()=>setDir(dir), 300)
+  const commitValue = () => {
+    const nextAngle = Number.parseFloat(draftValue)
+    if (!Number.isFinite(nextAngle) || nextAngle < limits.min || nextAngle > limits.max) {
+      setDraftValue(Math.round(angle).toString())
+      return
+    }
+
+    setJointTargetLocal(joint, nextAngle)
+    void api("/api/exo/command", {
+      method: "POST",
+      body: JSON.stringify({ joint, direction: 0, speed: 0, targetAngle: nextAngle }),
+    })
   }
-  const endHold = () => {
-    if (holdRef.current) { window.clearInterval(holdRef.current); holdRef.current = null }
-    stop()
+
+  const handleSingleStep = (dir: -1 | 1) => {
+    const nextAngle = clamp(angle + dir * 2, limits.min, limits.max)
+    setJointTargetLocal(joint, nextAngle)
+    void api("/api/exo/command", {
+      method: "POST",
+      body: JSON.stringify({ joint, direction: 0, speed: 0, targetAngle: nextAngle }),
+    })
   }
 
   return (
     <Card className="p-4">
-      <h3 className="font-semibold mb-2 capitalize">{joint.replace('_',' ')}</h3>
+      <h3 className="font-semibold mb-2 capitalize">{joint.replace('_', ' ')}</h3>
       <div className="flex items-center gap-3 mb-2">
         <div className="text-xs text-muted-foreground">{limits.min}°</div>
         <div className="flex-1 h-2 rounded-full border border-border overflow-hidden">
-          <div className="h-full bg-primary" style={{ width: `${pct*100}%` }} />
+          <div className="h-full bg-primary" style={{ width: `${pct * 100}%` }} />
         </div>
         <div className="text-xs text-muted-foreground">{limits.max}°</div>
       </div>
       <div className="flex items-center justify-between">
-        <div className="font-mono text-sm">{angle.toFixed(1)}° (max {maxSpeed}°/s)</div>
+        <div className="font-mono text-sm">
+          {angle.toFixed(1)}° <span className="text-[10px] text-muted-foreground">(max {maxSpeed}°/s)</span>
+        </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onMouseDown={()=>startHold(-1)} onMouseUp={endHold} onMouseLeave={endHold}>−</Button>
+          <input
+            ref={inputRef}
+            type="text"
+            className="h-8 w-14 rounded border border-input bg-background px-2 py-1 text-center font-mono text-sm outline-none focus:ring-1 focus:ring-primary"
+            value={draftValue}
+            onChange={(event) => setDraftValue(event.target.value)}
+            onBlur={commitValue}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                commitValue()
+                inputRef.current?.blur()
+              }
+            }}
+          />
+          <Button size="sm" onClick={() => handleSingleStep(-1)}>−</Button>
           <Button size="sm" variant="outline" onClick={stop}>Stop</Button>
-          <Button size="sm" onMouseDown={()=>startHold(+1)} onMouseUp={endHold} onMouseLeave={endHold}>+</Button>
+          <Button size="sm" onClick={() => handleSingleStep(+1)}>+</Button>
         </div>
       </div>
     </Card>

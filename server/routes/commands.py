@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 import db
 from comm import ClientNotConnectedError
+from polling_agents import polling_registry
 
 router = APIRouter(prefix="/api", tags=["commands"])
 
@@ -36,13 +37,7 @@ def send_command(client_id: str, req: CommandRequest):
     else:
         full_command = req.command
 
-    try:
-        event = _get_cm().send_command(client_id, full_command)
-    except ClientNotConnectedError:
-        raise HTTPException(status_code=409, detail=f"Client {client_id} is not connected")
-
-    db.log_command(event.msg_id, client_id, full_command, req.device, event.sent_at)
-    return {"msg_id": event.msg_id, "status": "sent", "command": full_command}
+    return _send_command_or_enqueue(client_id, full_command, req.device)
 
 
 @router.post("/clients/{client_id}/devices/{device_type}/command")
@@ -51,18 +46,14 @@ def send_device_command(client_id: str, device_type: str, req: CommandRequest):
     param_str = " ".join(str(v) for v in req.params.values()) if req.params else ""
     full_command = f"{device_type}:{req.command} {param_str}".strip()
 
-    try:
-        event = _get_cm().send_command(client_id, full_command)
-    except ClientNotConnectedError:
-        raise HTTPException(status_code=409, detail=f"Client {client_id} is not connected")
-
-    db.log_command(event.msg_id, client_id, full_command, device_type, event.sent_at)
-    return {"msg_id": event.msg_id, "status": "sent", "command": full_command}
+    return _send_command_or_enqueue(client_id, full_command, device_type)
 
 
 @router.get("/commands/{msg_id}")
 def get_command_status(msg_id: str):
     event = _get_cm().get_command_event(msg_id)
+    if event is None:
+        event = polling_registry.get_command_event(msg_id)
     if event is None:
         raise HTTPException(status_code=404, detail=f"No command with msg_id={msg_id}")
     return event
@@ -70,4 +61,20 @@ def get_command_status(msg_id: str):
 
 @router.get("/clients/{client_id}/commands")
 def get_command_history(client_id: str, limit: int = 100):
-    return _get_cm().list_command_events(client_id=client_id, limit=limit)
+    events = _get_cm().list_command_events(client_id=client_id, limit=limit)
+    events.extend(polling_registry.list_command_events(client_id=client_id, limit=limit))
+    events.sort(key=lambda event: event["sent_at"], reverse=True)
+    return events[:limit]
+
+
+def _send_command_or_enqueue(client_id: str, full_command: str, device_type: str):
+    try:
+        event = _get_cm().send_command(client_id, full_command)
+    except ClientNotConnectedError:
+        try:
+            event = polling_registry.enqueue_command(client_id, full_command)
+        except KeyError:
+            raise HTTPException(status_code=409, detail=f"Client {client_id} is not connected")
+
+    db.log_command(event.msg_id, client_id, full_command, device_type, event.sent_at)
+    return {"msg_id": event.msg_id, "status": "sent", "command": full_command}
