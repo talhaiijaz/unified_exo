@@ -1,0 +1,21 @@
+[Unit]
+Description=Unified Server — FastAPI backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nanotech
+Group=nanotech
+WorkingDirectory=/opt/unified_server/server
+EnvironmentFile=/etc/unified-server/server.env
+ExecStart=/opt/unified_server/server/.venv/bin/python /opt/unified_server/server/app.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/unified-server /opt/unified_server/server
+
+[Install]
+WantedBy=multi-user.target

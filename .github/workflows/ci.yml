@@ -93,7 +93,7 @@ jobs:
         run: |
           for f in README.md ARCHITECTURE.md DEPLOYMENT.md CONTRIBUTING.md LICENSE \
             docs/OVERVIEW.md docs/ONBOARDING.md docs/FRONTEND.md docs/BACKEND.md docs/DEPLOYMENT.md docs/SERVER.md \
-            contrib/README.md deploy/exo-server.service deploy/exo-frontend.service \
+            contrib/README.md deploy/unified-server.service deploy/unified-server-frontend.service \
             server/README.md server/.env.example pi_agent/README.md pi_agent/.env.example pi_agent/DEVICES.md \
             arduino/README.md arduino/WIRING.md nanotech_website/EXO_README.md nanotech_website/.env.example; do
             if [ ! -f "$f" ]; then

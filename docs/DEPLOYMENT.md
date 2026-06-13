@@ -6,7 +6,7 @@ See also the root [DEPLOYMENT.md](../DEPLOYMENT.md) for scenario-based guides.
 
 ```bash
 ssh -p 3000 nanotech@nanotechserver.ddns.net
-cd /opt/unified_exo
+cd /opt/unified_server
 git pull origin main
 ./scripts/deploy.sh
 ```
@@ -14,7 +14,7 @@ git pull origin main
 ## First-time server install
 
 ```bash
-cd /opt/unified_exo
+cd /opt/unified_server
 ./scripts/install.sh
 ```
 

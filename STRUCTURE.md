@@ -1,6 +1,6 @@
 # Project Structure — Complete Map
 
-**Repo:** `jadoo-tech/unified_server` · **Server path:** `/opt/unified_exo`
+**Repo:** `jadoo-tech/unified_server` · **Server path:** `/opt/unified_server`
 
 ## Top-level layout
 

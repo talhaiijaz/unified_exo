@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy latest main to the production server.
+# Deploy latest main to production.
 # Run from repo root: ./scripts/deploy.sh
 
 set -euo pipefail
@@ -12,14 +12,15 @@ echo "=== Unified Server deploy ==="
 echo "Repo: $ROOT_DIR"
 echo ""
 
-echo "[1/5] Pulling latest main..."
+echo "[1/5] Pulling latest main from GitHub..."
 git pull origin main
 
 echo "[2/5] Backend dependencies..."
 if [[ -f server/.venv/bin/pip ]]; then
   server/.venv/bin/pip install -r server/requirements.txt -q
 else
-  echo "  Warning: server/.venv not found — run scripts/install.sh first"
+  python3 -m venv server/.venv
+  server/.venv/bin/pip install -r server/requirements.txt -q
 fi
 
 echo "[3/5] Frontend build..."
@@ -29,24 +30,16 @@ pnpm build
 cd "$ROOT_DIR"
 
 echo "[4/5] Restarting services..."
-if systemctl is-active --quiet exo-server.service 2>/dev/null; then
+if systemctl is-active --quiet unified-server.service 2>/dev/null; then
+  sudo systemctl restart unified-server.service
+  sudo systemctl restart unified-server-frontend.service
+  echo "  Restarted unified-server + unified-server-frontend"
+elif systemctl is-active --quiet exo-server.service 2>/dev/null; then
   sudo systemctl restart exo-server.service
-  echo "  Restarted exo-server (system)"
-elif systemctl --user is-active --quiet exo-server.service 2>/dev/null; then
-  systemctl --user restart exo-server.service
-  echo "  Restarted exo-server (user)"
+  systemctl --user restart exo-frontend.service 2>/dev/null || sudo systemctl restart exo-frontend.service 2>/dev/null || true
+  echo "  Restarted legacy exo-* services (run install.sh to migrate)"
 else
-  echo "  Warning: exo-server not running — start with sudo systemctl start exo-server"
-fi
-
-if systemctl is-active --quiet exo-frontend.service 2>/dev/null; then
-  sudo systemctl restart exo-frontend.service
-  echo "  Restarted exo-frontend (system)"
-elif systemctl --user is-active --quiet exo-frontend.service 2>/dev/null; then
-  systemctl --user restart exo-frontend.service
-  echo "  Restarted exo-frontend (user)"
-else
-  echo "  Warning: exo-frontend not running — start with systemctl start exo-frontend"
+  echo "  Warning: no active services found — run ./scripts/install.sh"
 fi
 
 echo "[5/5] Health checks..."

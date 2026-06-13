@@ -2,7 +2,7 @@
 
 **Canonical repo:** [jadoo-tech/unified_server](https://github.com/jadoo-tech/unified_server)  
 **Production server:** `nanotechserver.ddns.net`  
-**Code on server:** `/opt/unified_exo`
+**Code on server:** `/opt/unified_server`
 
 ## Architecture
 
@@ -10,7 +10,7 @@
 GitHub (jadoo-tech/unified_server)
         │  git pull + ./scripts/deploy.sh
         ▼
-/opt/unified_exo  (monorepo on server)
+/opt/unified_server  (monorepo on server)
         │
         ├── server/              → exo-server.service  → :5000
         ├── nanotech_website/    → exo-frontend.service → :8080

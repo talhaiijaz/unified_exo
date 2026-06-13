@@ -2,42 +2,42 @@
 
 **Host:** `nanotechberkeley`  
 **SSH:** `ssh -p 3000 nanotech@nanotechserver.ddns.net`  
-**Code:** `/opt/unified_exo`
+**Code:** `/opt/unified_server`
 
 ## Services
 
 ```bash
-systemctl status exo-server exo-frontend
-sudo systemctl restart exo-server
-sudo systemctl restart exo-frontend
+systemctl status unified-server unified-server-frontend
+sudo systemctl restart unified-server
+sudo systemctl restart unified-server-frontend
 ```
 
 ## Logs
 
 ```bash
-journalctl -u exo-server -f
-journalctl -u exo-frontend -f
+journalctl -u unified-server -f
+journalctl -u unified-server-frontend -f
 ```
 
 ## Config files (not in git)
 
 | File | Purpose |
 |------|---------|
-| `/etc/exo-platform/server.env` | Backend secrets and ports |
-| `/etc/exo-platform/frontend.env` | Basic auth credentials |
-| `/var/lib/exo-platform/` | SQLite DB and recordings |
+| `/etc/unified-server/server.env` | Backend secrets and ports |
+| `/etc/unified-server/frontend.env` | Basic auth credentials |
+| `/var/lib/unified-server/` | SQLite DB and recordings |
 
 ## Deploy latest code
 
 ```bash
-cd /opt/unified_exo
+cd /opt/unified_server
 ./scripts/deploy.sh
 ```
 
 ## First-time setup
 
 ```bash
-cd /opt/unified_exo
+cd /opt/unified_server
 ./scripts/install.sh
 ```
 
