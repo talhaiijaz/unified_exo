@@ -23,3 +23,5 @@ One sentence describing your experiment or feature.
 - [ ] Needs `pnpm build`
 - [ ] Needs backend restart
 - [ ] Needs new env vars (document in PR)
+
+_Verified: contributor workflow test._
