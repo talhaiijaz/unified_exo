@@ -1,4 +1,18 @@
-# Contributing to Exo-Platform
+# Contributing to Unified Server (Exo-Platform)
+
+**Canonical repo:** [jadoo-tech/unified_server](https://github.com/jadoo-tech/unified_server)  
+**New here?** Start with [docs/ONBOARDING.md](docs/ONBOARDING.md)
+
+## Git workflow
+
+1. Get jadoo-tech access from **Dr. Waqas Khalid** (send GitHub username)
+2. Fork `jadoo-tech/unified_server`
+3. `git checkout -b feature/short-name`
+4. Make changes — see table below
+5. Open PR to `main`
+6. After merge, deployer runs `./scripts/deploy.sh` on [nanotechserver](http://nanotechserver.ddns.net:8080)
+
+---
 
 Thanks for your interest! This doc covers how to add features, fix bugs, and extend the platform.
 

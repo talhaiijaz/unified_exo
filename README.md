@@ -1,6 +1,10 @@
 <div align="center">
 
-# Exo-Platform
+# Unified Server (Exo-Platform)
+
+### One repo — frontend, backend, Pi agents, lab tools — deployed to nanotechserver
+
+**Repo:** [jadoo-tech/unified_server](https://github.com/jadoo-tech/unified_server) · **Live:** http://nanotechserver.ddns.net:8080 · **Docs:** [docs/OVERVIEW.md](docs/OVERVIEW.md) · **Onboard:** [docs/ONBOARDING.md](docs/ONBOARDING.md)
 
 ### Unified Remote Control System for Research Exoskeletons
 

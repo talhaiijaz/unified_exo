@@ -1,0 +1,25 @@
+[Unit]
+Description=Unified Server Next.js frontend
+After=network-online.target exo-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nanotech
+Group=nanotech
+WorkingDirectory=/opt/unified_exo/nanotech_website
+EnvironmentFile=/etc/exo-platform/frontend.env
+Environment=NODE_ENV=production
+Environment=HOSTNAME=0.0.0.0
+Environment=PORT=8080
+Environment=NEXT_TELEMETRY_DISABLED=1
+ExecStart=/usr/bin/pnpm exec next start -p 8080 -H 0.0.0.0
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/unified_exo/nanotech_website/.next /opt/unified_exo/nanotech_website/node_modules
+
+[Install]
+WantedBy=multi-user.target

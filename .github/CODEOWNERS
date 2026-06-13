@@ -1,0 +1,6 @@
+# Default reviewers for critical paths
+/deploy/ @talhaiijaz
+/scripts/deploy.sh @talhaiijaz
+/scripts/install.sh @talhaiijaz
+/server/ @talhaiijaz
+/nanotech_website/ @talhaiijaz

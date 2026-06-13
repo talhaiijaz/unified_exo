@@ -39,7 +39,7 @@ jobs:
         run: python -c "import sys; sys.path.insert(0, '.'); import config; from devices import DEVICE_REGISTRY; from agent import ClientAgent; assert len(DEVICE_REGISTRY) >= 8; print(f'OK {len(DEVICE_REGISTRY)} devices')"
 
   frontend:
-    name: Frontend (TypeScript)
+    name: Frontend (build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,6 +65,9 @@ jobs:
       - name: Type check
         run: pnpm tsc --noEmit || true
 
+      - name: Production build
+        run: pnpm build
+
   docker:
     name: Docker images
     runs-on: ubuntu-latest
@@ -88,10 +91,14 @@ jobs:
 
       - name: Check required docs exist
         run: |
-          for f in README.md ARCHITECTURE.md DEPLOYMENT.md CONTRIBUTING.md LICENSE server/README.md server/.env.example pi_agent/README.md pi_agent/.env.example pi_agent/DEVICES.md arduino/README.md arduino/WIRING.md nanotech_website/EXO_README.md nanotech_website/.env.example; do
+          for f in README.md ARCHITECTURE.md DEPLOYMENT.md CONTRIBUTING.md LICENSE \
+            docs/OVERVIEW.md docs/ONBOARDING.md docs/FRONTEND.md docs/BACKEND.md docs/DEPLOYMENT.md docs/SERVER.md \
+            contrib/README.md deploy/exo-server.service deploy/exo-frontend.service \
+            server/README.md server/.env.example pi_agent/README.md pi_agent/.env.example pi_agent/DEVICES.md \
+            arduino/README.md arduino/WIRING.md nanotech_website/EXO_README.md nanotech_website/.env.example; do
             if [ ! -f "$f" ]; then
-              echo "::error::Missing required documentation file $f"
+              echo "::error::Missing required file $f"
               exit 1
             fi
           done
-          echo "All required documentation files present."
+          echo "All required files present."

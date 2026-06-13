@@ -1,5 +1,8 @@
 # Deployment Guide
 
+> **Production server (nanotechserver):** See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for `git pull` + `./scripts/deploy.sh`.  
+> **First-time install:** `./scripts/install.sh`
+
 From local laptop development to production servers. This guide covers five deployment scenarios from simplest to most sophisticated.
 
 ---

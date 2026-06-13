@@ -1,5 +1,29 @@
 # Project Structure — Complete Map
 
+**Repo:** `jadoo-tech/unified_server` · **Server path:** `/opt/unified_exo`
+
+## Top-level layout
+
+```
+unified_server/
+├── server/                 # FastAPI backend
+├── nanotech_website/       # Next.js frontend
+├── pi_agent/               # Raspberry Pi agents
+├── Exoskeleton_public/     # Exoskeleton project files
+├── eeg_lab/                # EEG lab tools
+├── arduino/                # Firmware
+├── contrib/                # Per-person experiments (see contrib/README.md)
+├── deploy/                 # systemd units + env templates
+├── scripts/                # deploy.sh, install.sh, start_server.sh
+├── docs/                   # Role-based guides (START HERE for your area)
+├── archive/                # Retired/legacy folders (not active)
+└── docker-compose.yml      # Local full-stack via Docker
+```
+
+**Role guides:** [docs/OVERVIEW.md](docs/OVERVIEW.md) · [docs/ONBOARDING.md](docs/ONBOARDING.md)
+
+---
+
 A single-page guide to the entire repo. Use this to find what you're looking for or to understand how the pieces fit together.
 
 ---
