@@ -16,9 +16,11 @@ echo "[1/5] Pulling latest main from GitHub..."
 git pull origin main
 
 echo "[2/5] Backend dependencies..."
-if [[ -f server/.venv/bin/pip ]]; then
+if [[ -f server/.venv/bin/python ]] && server/.venv/bin/python -c "import sys" >/dev/null 2>&1; then
   server/.venv/bin/pip install -r server/requirements.txt -q
 else
+  echo "  Recreating backend venv (missing or stale path after migrate)..."
+  rm -rf server/.venv
   python3 -m venv server/.venv
   server/.venv/bin/pip install -r server/requirements.txt -q
 fi

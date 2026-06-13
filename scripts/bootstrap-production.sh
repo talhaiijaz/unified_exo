@@ -29,6 +29,14 @@ fi
 
 cd "$NEW"
 
+# Venv breaks when /opt/unified_exo is renamed — recreate before services start
+if [[ ! -f server/.venv/bin/python ]] || ! server/.venv/bin/python -c "import sys" >/dev/null 2>&1; then
+  echo "Recreating backend venv at new path..."
+  rm -rf server/.venv
+  sudo -u nanotech python3 -m venv server/.venv
+  sudo -u nanotech server/.venv/bin/pip install -r server/requirements.txt -q
+fi
+
 # Migrate config/data paths
 mkdir -p /etc/unified-server /var/lib/unified-server/recordings
 chown -R nanotech:nanotech /var/lib/unified-server

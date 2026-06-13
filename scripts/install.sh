@@ -18,9 +18,12 @@ echo "Config:  $CONFIG_DIR"
 echo "Data:    $DATA_DIR"
 echo ""
 
-# Backend venv
-if [[ ! -d server/.venv ]]; then
+# Backend venv (recreate if directory was renamed — venv shebangs embed absolute paths)
+if [[ -f server/.venv/bin/python ]] && server/.venv/bin/python -c "import sys" >/dev/null 2>&1; then
+  echo "[1/7] Backend venv OK"
+else
   echo "[1/7] Creating Python venv..."
+  rm -rf server/.venv
   python3 -m venv server/.venv
 fi
 server/.venv/bin/pip install -r server/requirements.txt -q
